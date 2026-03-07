@@ -12,3 +12,4 @@ yarn-error.log
 .env.production.local
 *.log
 *.txt
+/website
