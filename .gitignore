@@ -51,3 +51,6 @@ public/thumbnails/*
 public/videos/*
 !public/videos/.gitkeep
 backups/
+
+# website
+/website/

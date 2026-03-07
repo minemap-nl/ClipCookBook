@@ -1,35 +1,28 @@
 version: '3.8'
 
 services:
-  recepten-app:
-    image: minemap/pingvin-share-famretera.nl:recepten-database-v1.02
-    container_name: Recepten-App
+  social-recipe-saver:
+    image: ghcr.io/minemap-nl/socialrecipesaver:latest
+    container_name: Social-Recipe-Saver
     restart: always
     stop_grace_period: 5s
     ports:
       - "9416:3000"
     volumes:
-      # Database: mount to /app/data/ (NOT /app/prisma/ — that contains the schema!)
-      - /volume1/docker/recepten-app/db:/app/data
-      # Media files
-      - /volume1/docker/recepten-app/videos:/app/public/videos
-      - /volume1/docker/recepten-app/thumbnails:/app/public/thumbnails
-      # Backups
-      - /volume1/docker/recepten-app/backups:/app/backups
+      - ./db:/app/data
+      - ./thumbnails:/app/public/thumbnails
+      - ./videos:/app/public/videos
+      - ./backups:/app/backups
     environment:
-      # Database points to the mounted /app/data/ directory
       - DATABASE_URL=file:/app/data/dev.db
-      - SMTP_HOST=smtp.strato.com
+      - SMTP_HOST=your-smtp-host
       - SMTP_PORT=587
-      - SMTP_USER=noreply@famretera.nl
-      - SMTP_PASS=${SMTP_PASS}
-      - PROCESS_METHOD=ai
-      - GEMINI_API_KEY=${GEMINI_API_KEY}
-      - APP_NAME=Recepten van Kaatje
-      - NEXT_PUBLIC_APP_NAME=Recepten van Kaatje
-      - APP_URL=https://recepten.famretera.nl
-
-      # Security & Backups
-      - SITE_PASSWORD=${password}
-      - JWT_SECRET=${JWT_SECRET}
+      - SMTP_USER=your-email
+      - SMTP_PASS=your-password
+      - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
+      - GEMINI_API_KEY=your-gemini-api-key
+      - APP_NAME=Social Recipe Saver
+      - APP_URL=https://recepten.yourdomain.com
+      - SITE_PASSWORD=your-secret-password
+      - JWT_SECRET=your-random-jwt-secret
       - AUTO_BACKUP=true
