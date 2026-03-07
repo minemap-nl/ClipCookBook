@@ -12,4 +12,13 @@ yarn-error.log
 .env.production.local
 *.log
 *.txt
-/website
+[wW]ebsite
+README.md
+
+# VS Code & Workspace
+*.code-workspace
+.vscode/
+
+# Temp files
+tmp_*
+ultimate_truth.ts

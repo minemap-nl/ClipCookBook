@@ -54,3 +54,12 @@ backups/
 
 # website
 /website/
+/Website/
+
+# VS Code & Workspace
+*.code-workspace
+.vscode/
+
+# Temp files
+tmp_*
+ultimate_truth.ts
