@@ -93,8 +93,6 @@ The recommended way to install **Social Recipe Saver** is via **Docker**.
 3. Paste the following configuration:
 
 ```yaml
-version: '3.8'
-
 services:
   social-recipe-saver:
     image: ghcr.io/minemap-nl/socialrecipesaver:latest
