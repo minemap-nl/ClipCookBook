@@ -1,36 +1,180 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+<a id="readme-top"></a>
+
+<br />
+<div align="center">
+  <a href="https://socialrecipesaver.famretera.nl">
+    <img src="./public/icon-512x512.png" alt="Social Recipe Saver Logo" width="120" />
+  </a>
+
+  <h3 align="center">Social Recipe Saver</h3>
+
+  <p align="center">
+    A self-hosted web application to extract, save, and organize recipes from social media using AI.<br />
+    Turn Instagram Reels, TikToks, and other social media posts into structured cooking instructions instantly.
+    <br /><br />
+    <a href="https://github.com/minemap-nl/socialrecipesaver/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    &middot;
+    <a href="https://github.com/minemap-nl/socialrecipesaver/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+  </p>
+</div>
+
+---
+
+<details>
+<summary><strong>Table of Contents</strong></summary>
+<ol>
+  <li>
+    <a href="#about-the-project">About The Project</a>
+    <ul>
+      <li><a href="#built-with">Built With</a></li>
+    </ul>
+  </li>
+  <li><a href="#key-features">Key Features</a></li>
+  <li>
+    <a href="#getting-started">Getting Started</a>
+    <ul>
+      <li><a href="#prerequisites">Prerequisites</a></li>
+      <li><a href="#installation-docker">Installation (Docker)</a></li>
+    </ul>
+  </li>
+  <li><a href="#ai-integration">AI Integration</a></li>
+  <li><a href="#license">License</a></li>
+  <li><a href="#contact">Contact</a></li>
+</ol>
+</details>
+
+---
+
+## About The Project
+
+**Social Recipe Saver** is your personal, self-hosted database for all those delicious recipes you find while scrolling through social media. Instead of saving a post and never looking at it again, Social Recipe Saver uses AI (like Google Gemini) to extract ingredients, portions, and step-by-step instructions directly from the post URL.
+
+It's designed to be fast, private, and fully under your control.
+
+### Built With
+
+* [Next.js][next-url]
+* [React][react-url]
+* [TypeScript][typescript-url]
+* [Prisma][prisma-url] (SQLite)
+* [Google Gemini AI][gemini-url]
+* [Docker][docker-url]
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## Key Features
+
+* **📱 Social Media Extraction** — Paste an Instagram or TikTok link and let AI do the work.
+* **🤖 AI-Powered** — Automatically identifies ingredients, amounts, units, and cooking steps.
+* **🎥 Media Gallery** — Keeps the original video and thumbnails alongside the recipe.
+* **📅 Automated Backups** — Optional automatic backups to keep your data safe.
+* **📧 Email Integration** — Built-in support for sending recipes via SMTP.
+* **🔒 Self-Hosted** — You own your data. Simple SQLite database with easy Docker deployment.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
 
 ## Getting Started
 
-First, run the development server:
+The recommended way to install **Social Recipe Saver** is via **Docker**.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### Prerequisites
+
+* **Docker** and **Docker Compose** installed on your server.
+* *(Optional)* A Google Gemini API Key (Free tier is supported!).
+
+### Installation (Docker)
+
+1. Create a directory for the project and navigate into it.
+2. Create a file named `docker-compose.yml`.
+3. Paste the following configuration:
+
+```yaml
+version: '3.8'
+
+services:
+  social-recipe-saver:
+    image: ghcr.io/minemap-nl/socialrecipesaver:latest
+    container_name: Social-Recipe-Saver
+    restart: always
+    stop_grace_period: 5s
+    ports:
+      - "9416:3000"
+    volumes:
+      - ./db:/app/data
+      - ./thumbnails:/app/public/thumbnails
+      - ./videos:/app/public/videos
+      - ./backups:/app/backups
+    environment:
+      - DATABASE_URL=file:/app/data/dev.db
+      - SMTP_HOST=your-smtp-host
+      - SMTP_PORT=587
+      - SMTP_USER=your-email
+      - SMTP_PASS=your-password
+      - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
+      - GEMINI_API_KEY=your-gemini-api-key
+      - APP_NAME=Social Recipe Saver
+      - APP_URL=https://recepten.yourdomain.com
+      - SITE_PASSWORD=your-secret-password
+      - JWT_SECRET=your-random-jwt-secret
+      - AUTO_BACKUP=true
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Start the stack:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```sh
+docker compose up -d
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## Learn More
+---
 
-To learn more about Next.js, take a look at the following resources:
+## AI Integration
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Social Recipe Saver currently leverages **Google Gemini AI** to transform unstructured social media data into structured recipes.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+* **Free Tier Supported**: You can use a free tier API key from [Google AI Studio](https://aistudio.google.com/).
+* **Optimal Results**: AI is required for optimal automatic extraction of ingredients and steps. Without it (`PROCESS_METHOD=manual`), you can still save links and media but an algoritm will try to do it's best using the description of a social media video. You also can't use the photo recipe extraction feature. You can always enter recipe details manually.
+* **Future Updates**: Support for additional AI providers (like OpenAI or local LLMs) is planned for future releases.
 
-## Deploy on Vercel
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+---
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+
+**Source Available – MIT with Commons Clause**
+
+This project is licensed under the **MIT License** with the **Commons Clause** condition.
+
+* ✅ You may use, copy, modify, and distribute this software for personal or internal business use.
+* ✅ You may use this software to share files with clients or partners as part of normal business operations.
+* ❌ You may **not** sell this software or offer it as a commercial SaaS product where the primary value comes from the software itself.
+
+See the `LICENSE` file for details.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+## Contact
+
+**Minemap / Famretera**  
+Website: [https://socialrecipesaver.famretera.nl](https://socialrecipesaver.famretera.nl)
+
+Project Repository: [https://github.com/minemap-nl/socialrecipesaver](https://github.com/minemap-nl/socialrecipesaver)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
+[next-url]: https://nextjs.org/
+[react-url]: https://reactjs.org/
+[typescript-url]: https://www.typescriptlang.org/
+[prisma-url]: https://www.prisma.io/
+[gemini-url]: https://aistudio.google.com/
+[docker-url]: https://www.docker.com/

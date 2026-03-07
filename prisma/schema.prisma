@@ -1,0 +1,54 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Recipe {
+  id            String       @id @default(cuid())
+  title         String
+  description   String?
+  tags          String?
+  originalUrl   String?
+  videoPath     String?
+  thumbnailPath       String?
+  originalThumbnail   String?
+  suggestedThumbnails String?
+  media               String?      // Separate column for the Media Gallery Array
+  portions            Int          @default(4)
+  ingredients   Ingredient[]
+  steps         Step[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Ingredient {
+  id       String  @id @default(cuid())
+  name     String
+  amount   Float?
+  unit     String?
+  recipeId String
+  recipe   Recipe  @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+}
+
+model Step {
+  id          String @id @default(cuid())
+  description String
+  order       Int
+  recipeId    String
+  recipe      Recipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+}
+
+model ImportJob {
+  id        String   @id @default(cuid())
+  url       String
+  status    String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, ERROR
+  message   String   @default("Wachten in wachtrij...") // Progress message
+  recipeId  String?
+  error     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
