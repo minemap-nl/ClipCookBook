@@ -2,19 +2,19 @@
 
 <br />
 <div align="center">
-  <a href="https://socialrecipesaver.famretera.nl">
-    <img src="./public/icon-512x512.png" alt="Social Recipe Saver Logo" width="120" />
+  <a href="https://clipcookbook.famretera.nl">
+    <img src="./public/icon-512x512.png" alt="ClipCookBook Logo" width="120" />
   </a>
 
-  <h3 align="center">Social Recipe Saver</h3>
+  <h3 align="center">ClipCookBook</h3>
 
   <p align="center">
     A self-hosted web application to extract, save, and organize recipes from social media using AI.<br />
     Turn Instagram Reels, TikToks, and other social media posts into structured cooking instructions instantly.
     <br /><br />
-    <a href="https://github.com/minemap-nl/socialrecipesaver/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="https://github.com/minemap-nl/ClipCookBook/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     &middot;
-    <a href="https://github.com/minemap-nl/socialrecipesaver/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/minemap-nl/ClipCookBook/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
 </div>
 
@@ -47,7 +47,7 @@
 
 ## About The Project
 
-**Social Recipe Saver** is your personal, self-hosted database for all those delicious recipes you find while scrolling through social media. Instead of saving a post and never looking at it again, Social Recipe Saver uses AI (like Google Gemini) to extract ingredients, portions, and step-by-step instructions directly from the post URL.
+**ClipCookBook** is your personal, self-hosted database for all those delicious recipes you find while scrolling through social media. Instead of saving a post and never looking at it again, ClipCookBook uses AI (like Google Gemini) to extract ingredients, portions, and step-by-step instructions directly from the post URL.
 
 It's designed to be fast, private, and fully under your control.
 
@@ -95,7 +95,7 @@ The recommended way to install **Social Recipe Saver** is via **Docker**.
 ```yaml
 services:
   social-recipe-saver:
-    image: ghcr.io/minemap-nl/socialrecipesaver:latest
+    image: ghcr.io/minemap-nl/ClipCookBook:latest
     container_name: Social-Recipe-Saver
     restart: always
     stop_grace_period: 5s
@@ -114,7 +114,7 @@ services:
       - SMTP_PASS=your-password
       - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
       - GEMINI_API_KEY=your-gemini-api-key
-      - APP_NAME=Social Recipe Saver
+      - APP_NAME=ClipCookBook
       - APP_URL=https://recepten.yourdomain.com
       - SITE_PASSWORD=your-secret-password
       - JWT_SECRET=your-random-jwt-secret
@@ -133,7 +133,7 @@ docker compose up -d
 
 ## AI Integration
 
-Social Recipe Saver currently leverages **Google Gemini AI** to transform unstructured social media data into structured recipes.
+ClipCookBook currently leverages **Google Gemini AI** to transform unstructured social media data into structured recipes.
 
 * **Free Tier Supported**: You can use a free tier API key from [Google AI Studio](https://aistudio.google.com/).
 * **Optimal Results**: AI is required for optimal automatic extraction of ingredients and steps. Without it (`PROCESS_METHOD=manual`), you can still save links and media but an algoritm will try to do it's best using the description of a social media video. You also can't use the photo recipe extraction feature. You can always enter recipe details manually.
@@ -162,9 +162,9 @@ See the `LICENSE` file for details.
 ## Contact
 
 **Minemap / Famretera**  
-Website: [https://socialrecipesaver.famretera.nl](https://socialrecipesaver.famretera.nl)
+Website: [https://clipcookbook.famretera.nl](https://clipcookbook.famretera.nl)
 
-Project Repository: [https://github.com/minemap-nl/socialrecipesaver](https://github.com/minemap-nl/socialrecipesaver)
+Project Repository: [https://github.com/minemap-nl/ClipCookBook](https://github.com/minemap-nl/ClipCookBook)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
