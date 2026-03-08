@@ -79,7 +79,7 @@ It's designed to be fast, private, and fully under your control.
 
 ## Getting Started
 
-The recommended way to install **Social Recipe Saver** is via **Docker**.
+The recommended way to install **ClipCookBook** is via **Docker**.
 
 ### Prerequisites
 
@@ -94,9 +94,9 @@ The recommended way to install **Social Recipe Saver** is via **Docker**.
 
 ```yaml
 services:
-  social-recipe-saver:
+  clipcookbook:
     image: ghcr.io/minemap-nl/ClipCookBook:latest
-    container_name: Social-Recipe-Saver
+    container_name: ClipCookBook
     restart: always
     stop_grace_period: 5s
     ports:
@@ -115,10 +115,11 @@ services:
       - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
       - GEMINI_API_KEY=your-gemini-api-key
       - APP_NAME=ClipCookBook
-      - APP_URL=https://recepten.yourdomain.com
+      - APP_URL=https://clipcookbook.yourdomain.com #or whatever http or https domain you want. You can also just use http://{your internal ip-adres}:{port number in this case 9416}
       - SITE_PASSWORD=your-secret-password
       - JWT_SECRET=your-random-jwt-secret
       - AUTO_BACKUP=true
+      - LANGUAGE=en
 ```
 
 4. Start the stack:
