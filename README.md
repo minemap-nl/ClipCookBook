@@ -95,7 +95,7 @@ The recommended way to install **ClipCookBook** is via **Docker**.
 ```yaml
 services:
   clipcookbook:
-    image: ghcr.io/minemap-nl/ClipCookBook:latest
+    image: ghcr.io/minemap-nl/clipcookbook:latest
     container_name: ClipCookBook
     restart: always
     stop_grace_period: 5s
