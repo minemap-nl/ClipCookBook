@@ -2,7 +2,7 @@
 
 <br />
 <div align="center">
-  <a href="https://socialrecipesaver.famretera.nl">
+  <a href="https://clipcookbook.famretera.nl">
     <img src="./public/icon-512x512.png" alt="ClipCookBook Logo" width="120" />
   </a>
 
@@ -12,9 +12,9 @@
     A self-hosted web application to extract, save, and organize recipes from social media using AI.<br />
     Turn Instagram Reels, TikToks, and other social media posts into structured cooking instructions instantly.
     <br /><br />
-    <a href="https://github.com/minemap-nl/socialrecipesaver/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
+    <a href="https://github.com/minemap-nl/ClipCookBook/issues/new?labels=bug&template=bug-report---.md">Report Bug</a>
     &middot;
-    <a href="https://github.com/minemap-nl/socialrecipesaver/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
+    <a href="https://github.com/minemap-nl/ClipCookBook/issues/new?labels=enhancement&template=feature-request---.md">Request Feature</a>
   </p>
 </div>
 
@@ -93,12 +93,10 @@ The recommended way to install **ClipCookBook** is via **Docker**.
 3. Paste the following configuration:
 
 ```yaml
-version: '3.8'
-
 services:
-  social-recipe-saver:
-    image: ghcr.io/minemap-nl/socialrecipesaver:latest
-    container_name: Social-Recipe-Saver
+  clipcookbook:
+    image: ghcr.io/minemap-nl/ClipCookBook:latest
+    container_name: ClipCookBook
     restart: always
     stop_grace_period: 5s
     ports:
@@ -114,14 +112,11 @@ services:
       - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
       - GEMINI_API_KEY=your-gemini-api-key
       - APP_NAME=ClipCookBook
-      - APP_URL=https://recepten.yourdomain.com
+      - APP_URL=https://clipcookbook.yourdomain.com #or whatever http or https domain you want. You can also just use http://{your internal ip-adres}:{port number in this case 9416}
       - SITE_PASSWORD=your-secret-password
       - JWT_SECRET=your-random-jwt-secret
       - AUTO_BACKUP=true
-      - SMTP_HOST=your-smtp-host
-      - SMTP_PORT=587
-      - SMTP_USER=your-email
-      - SMTP_PASS=your-password
+      - LANGUAGE=en
 ```
 
 4. Start the stack:
@@ -165,9 +160,9 @@ See the `LICENSE` file for details.
 ## Contact
 
 **Minemap / Famretera**  
-Website: [https://socialrecipesaver.famretera.nl](https://socialrecipesaver.famretera.nl)
+Website: [https://clipcookbook.famretera.nl](https://clipcookbook.famretera.nl)
 
-Project Repository: [https://github.com/minemap-nl/socialrecipesaver](https://github.com/minemap-nl/socialrecipesaver)
+Project Repository: [https://github.com/minemap-nl/ClipCookBook](https://github.com/minemap-nl/ClipCookBook)
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
