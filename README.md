@@ -3,7 +3,7 @@
 <br />
 <div align="center">
   <a href="https://clipcookbook.famretera.nl">
-    <img src="./public/icon-512x512.png" alt="ClipCookBook Logo" width="120" />
+    <img src="./app/icon.svg" alt="ClipCookBook Logo" width="200" />
   </a>
 
   <h3 align="center">ClipCookBook</h3>
