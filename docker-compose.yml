@@ -15,14 +15,15 @@ services:
       - ./backups:/app/backups
     environment:
       - DATABASE_URL=file:/app/data/dev.db
-      - SMTP_HOST=your-smtp-host
-      - SMTP_PORT=587
-      - SMTP_USER=your-email
-      - SMTP_PASS=your-password
+      - LANGUAGE=nl # UI Language ('en' or 'nl')
       - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
       - GEMINI_API_KEY=your-gemini-api-key
-      - APP_NAME=Social Recipe Saver
+      - APP_NAME=ClipCookBook
       - APP_URL=https://recepten.yourdomain.com
       - SITE_PASSWORD=your-secret-password
       - JWT_SECRET=your-random-jwt-secret
       - AUTO_BACKUP=true
+      - SMTP_HOST=your-smtp-host
+      - SMTP_PORT=587
+      - SMTP_USER=your-email
+      - SMTP_PASS=your-password

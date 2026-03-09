@@ -30,7 +30,7 @@ async function downloadThumbnail(url: string, destPath: string): Promise<boolean
     }
 }
 
-async function processJob(jobId: string, url: string) {
+async function processJob(jobId: string, url: string, deepSearch: boolean = false) {
     try {
         const id = crypto.randomUUID();
         const videoName = `${id}.mp4`;
@@ -139,27 +139,38 @@ async function processJob(jobId: string, url: string) {
                         extracted = extractRecipeData(cleanDesc);
                     }
 
-                    // Smart Fallback: If text was too short or no actual recipe was found, use the Video AI!
-                    const cleanTextLength = contentToProcess.replace(/#\w+/gi, '').replace(/https?:\/\/[^\s]+/gi, '').trim().length;
-                    const isTextTooShort = cleanTextLength < 100;
+                    try {
+                        // Smart Fallback checks 
+                        let isTextTooShort = false;
+                        let hasNoUsefulData = false;
 
-                    const hasNoIngredients = !extracted || !extracted.ingredients || extracted.ingredients.length === 0;
-                    const hasNoUsefulSteps = !extracted || !extracted.steps || extracted.steps.length === 0;
+                        if (extracted) {
+                            const cleanTextLength = contentToProcess.replace(/#\w+/gi, '').replace(/https?:\/\/[^\s]+/gi, '').trim().length;
+                            isTextTooShort = cleanTextLength < 100;
+                            const hasNoIngredients = !extracted.ingredients || extracted.ingredients.length === 0;
+                            const hasNoUsefulSteps = !extracted.steps || extracted.steps.length === 0;
+                            // Also flag if steps has 1 item and it's suspiciously short (could be a catch-all for bad unstructured data)
+                            hasNoUsefulData = hasNoIngredients || hasNoUsefulSteps || (extracted.steps.length === 1 && extracted.steps[0].length < 50);
+                        }
 
-                    const hasNoUsefulData = hasNoIngredients || hasNoUsefulSteps || (extracted.steps.length === 1 && extracted.steps[0].length < 50);
+                        if (deepSearch || hasNoUsefulData || isTextTooShort || !extracted) {
+                            if (deepSearch) {
+                                console.log("Deep Search requested. Triggering Video AI directly...");
+                                await prisma.importJob.update({ where: { id: jobId }, data: { message: "Deep Search geselecteerd: Audio & video analyseren (AI)... dit kan even duren." } });
+                            } else {
+                                console.log("Text info insufficient. Starting Video AI Fallback...");
+                                await prisma.importJob.update({ where: { id: jobId }, data: { message: "De beschrijving bevatte onvoldoende informatie. Video bekijken (AI)... dit kan even duren." } });
+                            }
 
-                    if (hasNoUsefulData || isTextTooShort) {
-                        console.log("Text info insufficient. Starting Video AI Fallback...");
-                        await prisma.importJob.update({ where: { id: jobId }, data: { message: "De beschrijving bevatte onvoldoende informatie. Video bekijken (AI)... dit kan even duren." } });
-                        try {
                             // Wait for the video download to finish first
                             await videoPromise;
+                            // If deepSearch was true, 'extracted' from text might be junk or skipped. Overwrite it completely.
                             extracted = await extractRecipeDataFromVideo(outputPath, contentToProcess);
-                        } catch (err: any) {
-                            console.error("Video AI Fallback faalde:", err);
-                            if (err.message && err.message.includes("Geen recept")) {
-                                throw err; // Abort entire import job
-                            }
+                        }
+                    } catch (err: any) {
+                        console.error("Video AI Fallback faalde:", err);
+                        if (err.message && err.message.includes("Geen recept")) {
+                            throw err; // Abort entire import job
                         }
                     }
 
@@ -225,7 +236,7 @@ async function processJob(jobId: string, url: string) {
 
 export async function POST(req: Request) {
     try {
-        const { url } = await req.json();
+        const { url, deepSearch } = await req.json();
         if (!url) return NextResponse.json({ error: "Geen URL meegegeven" }, { status: 400 });
 
         // Strip query parameters to prevent duplicates like ?igsh=...
@@ -298,12 +309,13 @@ export async function POST(req: Request) {
             data: {
                 url: cleanUrl,
                 status: 'PROCESSING',
-                message: 'Wachten in wachtrij...'
+                message: 'Wachten in wachtrij...',
+                deepSearch: deepSearch || false // Add deepSearch to the job creation
             }
         });
 
         // Fire and forget the background process
-        processJob(job.id, cleanUrl).catch(console.error);
+        processJob(job.id, cleanUrl, deepSearch || false).catch(console.error); // Pass deepSearch to processJob
 
         return NextResponse.json({ success: true, jobId: job.id, message: "Import gestart in wachtrij." });
 

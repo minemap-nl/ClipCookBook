@@ -3,8 +3,10 @@
 import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n';
 
 export default function Home() {
+    const { t, isNL } = useI18n();
     const [recipes, setRecipes] = useState<any[]>([]);
     const [search, setSearch] = useState('');
     const [selectedTags, setSelectedTags] = useState<string[]>([]);
@@ -139,7 +141,7 @@ export default function Home() {
             });
         });
 
-        let listContent = "🛒 Boodschappenlijst:\n\n";
+        let listContent = isNL ? "🛒 Boodschappenlijst:\n\n" : "🛒 Shopping List:\n\n";
 
         // Group by category if we wanted to, but for now just sort alphabetically
         const sortedKeys = Array.from(ingredientsMap.keys()).sort();
@@ -171,21 +173,21 @@ export default function Home() {
     const copyShoppingList = async () => {
         try {
             await navigator.clipboard.writeText(shoppingListText);
-            alert("Boodschappenlijst gekopieerd!");
+            alert(t('copied'));
             setShowShoppingList(false);
             setSelectionMode(false);
             setSelectedRecipes(new Set());
             setShoppingListPortions({});
         } catch (err) {
-            alert("Kopiëren mislukt.");
+            alert(isNL ? "Kopiëren mislukt." : "Copy failed.");
         }
     };
 
     return (
         <div>
             <div style={{ marginBottom: '30px', textAlign: 'center' }}>
-                <h1 style={{ fontSize: 'clamp(1.5rem, 7vw, 2.5rem)', marginBottom: '10px', whiteSpace: 'nowrap' }}>Welkom in de Keuken</h1>
-                <p style={{ color: 'var(--text-secondary)' }}>Vind eenvoudig al je bewaarde recepten terug.</p>
+                <h1 style={{ fontSize: 'clamp(1.5rem, 7vw, 2.5rem)', marginBottom: '10px', whiteSpace: 'nowrap' }}>{isNL ? 'Welkom in de Keuken' : 'Welcome to the Kitchen'}</h1>
+                <p style={{ color: 'var(--text-secondary)' }}>{isNL ? 'Vind eenvoudig al je bewaarde recepten terug.' : 'Easily find all your saved recipes.'}</p>
             </div>
 
             {activeJobs.length > 0 && (
@@ -202,10 +204,10 @@ export default function Home() {
                 }}>
                     <span className="spinner" style={{ width: '16px', height: '16px', borderWidth: '2px', borderTopColor: 'var(--primary-color)' }}></span>
                     <span style={{ fontSize: '0.95rem', fontWeight: '500', color: 'var(--primary-color)' }}>
-                        {activeJobs.length} {activeJobs.length === 1 ? 'recept' : 'recepten'} aan het importeren op de achtergrond...
+                        {activeJobs.length} {activeJobs.length === 1 ? t('recept') : t('recepten')} {isNL ? 'aan het importeren op de achtergrond...' : 'importing in the background...'}
                     </span>
                     <Link href="/toevoegen" style={{ marginLeft: 'auto', fontSize: '0.85rem', color: 'var(--text-secondary)', textDecoration: 'underline' }}>
-                        Bekijk details
+                        {isNL ? 'Bekijk details' : 'View details'}
                     </Link>
                 </div>
             )}
@@ -214,7 +216,7 @@ export default function Home() {
                 <div style={{ display: 'flex', gap: '10px' }}>
                     <input
                         type="text"
-                        placeholder="Zoek naar een recept of ingrediënt... (bijv. appel)"
+                        placeholder={isNL ? 'Zoek naar een recept of ingrediënt...' : 'Search for a recipe or ingredient...'}
                         value={search}
                         onChange={e => setSearch(e.target.value)}
                         style={{ flex: 1, padding: '16px 20px', fontSize: '1.1rem', borderRadius: 'var(--border-radius)', border: '2px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}
@@ -223,7 +225,7 @@ export default function Home() {
                         onClick={() => setShowFilters(!showFilters)}
                         className={`btn ${showFilters || selectedTags.length > 0 ? 'btn' : 'btn-secondary'}`}
                         style={{ padding: '0 20px', fontSize: '1.2rem', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                        title="Filters bekijken"
+                        title={isNL ? 'Filters bekijken' : 'View filters'}
                     >
                         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"></polygon></svg>
                         {selectedTags.length > 0 && (
@@ -236,13 +238,13 @@ export default function Home() {
                         onClick={toggleSelectionMode}
                         className={`btn ${selectionMode ? 'btn' : 'btn-secondary'}`}
                         style={{ padding: '0 20px', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                        title="Boodschappenlijstje maken"
+                        title={t('generateList')}
                     >
                         🛒
                     </button>
                     {selectionMode && selectedRecipes.size > 0 && (
                         <button onClick={openPortionModal} className="btn" style={{ padding: '0 20px' }}>
-                            Maak Lijst ({selectedRecipes.size})
+                            {isNL ? 'Maak Lijst' : 'Generate List'} ({selectedRecipes.size})
                         </button>
                     )}
                 </div>
@@ -251,14 +253,14 @@ export default function Home() {
                     <div style={{ marginTop: '10px', padding: '15px', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)', animation: 'fadeIn 0.2s ease-out' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                             <span style={{ fontSize: '1.05rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                                🏷️ Filter op Categorie:
+                                🏷️ {isNL ? 'Filter op Categorie:' : 'Filter by Category:'}
                             </span>
                             {selectedTags.length > 0 && (
                                 <button
                                     onClick={() => setSelectedTags([])}
                                     style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', padding: '4px 8px' }}
                                 >
-                                    ✕ Wis alle filters
+                                    ✕ {isNL ? 'Wis alle filters' : 'Clear all filters'}
                                 </button>
                             )}
                         </div>
@@ -304,10 +306,10 @@ export default function Home() {
                 </div>
             ) : filtered.length === 0 ? (
                 <div className="card" style={{ textAlign: 'center', padding: '40px' }}>
-                    <h3 style={{ color: 'var(--text-secondary)' }}>Geen recepten gevonden</h3>
-                    <p>Probeer een ander trefwoord, of voeg een nieuw recept toe!</p>
+                    <h3 style={{ color: 'var(--text-secondary)' }}>{isNL ? 'Geen recepten gevonden' : 'No recipes found'}</h3>
+                    <p>{isNL ? 'Probeer een ander trefwoord, of voeg een nieuw recept toe!' : 'Try a different keyword, or add a new recipe!'}</p>
                     <Link href="/toevoegen" className="btn" style={{ marginTop: '20px' }}>
-                        Nieuw Recept Toevoegen
+                        {t('addNewRecipe')}
                     </Link>
                 </div>
             ) : (
@@ -385,7 +387,7 @@ export default function Home() {
                                                 {recipe.description}
                                             </p>
                                         )}
-                                        <p>Voor {recipe.portions} personen · {recipe.ingredients?.length || 0} ingrediënten</p>
+                                        <p>{isNL ? 'Voor' : 'For'} {recipe.portions} {isNL ? 'personen' : 'servings'} · {recipe.ingredients?.length || 0} {t('ingredients').toLowerCase()}</p>
                                     </div>
                                 </div>
                             </div>
@@ -411,8 +413,8 @@ export default function Home() {
             {showPortionModal && createPortal(
                 <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
                     <div className="card" style={{ width: '90%', maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column', overflowY: 'auto' }}>
-                        <h2 style={{ marginBottom: '15px' }}>Voor hoeveel personen?</h2>
-                        <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>Pas indien nodig het aantal personen per recept aan voordat de lijst wordt gegenereerd.</p>
+                        <h2 style={{ marginBottom: '15px' }}>{isNL ? 'Voor hoeveel personen?' : 'How many servings?'}</h2>
+                        <p style={{ color: 'var(--text-secondary)', marginBottom: '20px' }}>{isNL ? 'Pas indien nodig het aantal personen per recept aan voordat de lijst wordt gegenereerd.' : 'Adjust the number of servings per recipe before the list is generated.'}</p>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '15px', marginBottom: '25px' }}>
                             {recipes.filter(r => selectedRecipes.has(r.id)).map(recipe => (
@@ -430,8 +432,8 @@ export default function Home() {
                         </div>
 
                         <div style={{ display: 'flex', gap: '10px' }}>
-                            <button className="btn" style={{ flex: 1 }} onClick={generateShoppingList}>Genereer</button>
-                            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowPortionModal(false)}>Annuleren</button>
+                            <button className="btn" style={{ flex: 1 }} onClick={generateShoppingList}>{isNL ? 'Genereer' : 'Generate'}</button>
+                            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => setShowPortionModal(false)}>{t('cancel')}</button>
                         </div>
                     </div>
                 </div>,
@@ -441,15 +443,15 @@ export default function Home() {
             {showShoppingList && createPortal(
                 <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 9999 }}>
                     <div className="card" style={{ width: '90%', maxWidth: '500px', maxHeight: '80vh', display: 'flex', flexDirection: 'column' }}>
-                        <h2 style={{ marginBottom: '15px' }}>Boodschappenlijstje</h2>
+                        <h2 style={{ marginBottom: '15px' }}>{t('shoppingList')}</h2>
                         <textarea
                             value={shoppingListText}
                             readOnly
                             style={{ flex: 1, minHeight: '300px', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-color)', fontFamily: 'monospace', fontSize: '0.95rem', resize: 'none' }}
                         />
                         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                            <button className="btn" style={{ flex: 1 }} onClick={copyShoppingList}>📋 Kopiëren</button>
-                            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowShoppingList(false); setSelectionMode(false); setSelectedRecipes(new Set()); }}>Sluiten</button>
+                            <button className="btn" style={{ flex: 1 }} onClick={copyShoppingList}>📋 {t('copyToClipboard')}</button>
+                            <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowShoppingList(false); setSelectionMode(false); setSelectedRecipes(new Set()); }}>{t('close')}</button>
                         </div>
                     </div>
                 </div>,

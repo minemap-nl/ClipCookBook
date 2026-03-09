@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n';
+import { buildTimerRegex, parseTimeToMs } from '@/lib/timerParser';
 
 let globalAlarmAudio: HTMLAudioElement | null = null;
 
@@ -195,6 +197,7 @@ const FilmstripScrubber = ({ videoRef, onCapture, onCancel }: { videoRef: React.
 };
 
 export default function ReceptDetail() {
+    const { t, isNL } = useI18n();
     const { id } = useParams();
     const router = useRouter();
 
@@ -319,7 +322,7 @@ export default function ReceptDetail() {
 
     useEffect(() => {
         fetch(`/api/recept/${id}`, { credentials: 'include' })
-            .then(r => { if (r.status === 401) { window.location.reload(); return; } if (!r.ok) throw new Error("Niet gevonden"); return r.json(); })
+            .then(r => { if (r.status === 401) { window.location.reload(); return; } if (!r.ok) throw new Error(isNL ? "Niet gevonden" : "Not found"); return r.json(); })
             .then(data => { setRecipe(data); setTargetPortions(data.portions || 4); setLoading(false); })
             .catch(e => { setErrorMsg(e.message); setLoading(false); });
     }, [id]);
@@ -334,7 +337,7 @@ export default function ReceptDetail() {
 
     const toggleWakeLock = async () => {
         if (!('wakeLock' in navigator)) {
-            alert('Je browser ondersteunt Kookmodus (Wake Lock) niet.');
+            alert(isNL ? 'Je browser ondersteunt Kookmodus (Wake Lock) niet.' : 'Your browser does not support Cook Mode (Wake Lock).');
             return;
         }
 
@@ -355,7 +358,7 @@ export default function ReceptDetail() {
             }
         } catch (err) {
             console.error('Wake Lock ERROR', err);
-            alert('Kon kookmodus niet activeren.');
+            alert(isNL ? 'Kon kookmodus niet activeren.' : 'Could not activate cook mode.');
         }
     };
 
@@ -412,14 +415,14 @@ export default function ReceptDetail() {
                     thumbnailPath: editThumbnail,
                 })
             });
-            if (!res.ok) throw new Error("Opslaan mislukt");
+            if (!res.ok) throw new Error(isNL ? "Opslaan mislukt" : "Save failed");
             const updated = await res.json();
             setRecipe(updated);
             setTargetPortions(updated.portions || 4);
             setEditing(false);
-            showToast("Recept opgeslagen!");
+            showToast(isNL ? "Recept opgeslagen!" : "Recipe saved!");
         } catch {
-            showToast("Fout bij opslaan");
+            showToast(isNL ? "Fout bij opslaan" : "Error saving");
         }
         setSaving(false);
     };
@@ -447,19 +450,19 @@ export default function ReceptDetail() {
     };
 
     const handleDelete = () => {
-        showConfirm("Weet je zeker dat je dit recept wil verwijderen?", async () => {
+        showConfirm(isNL ? "Weet je zeker dat je dit recept wil verwijderen?" : "Are you sure you want to delete this recipe?", async () => {
             try { await fetch(`/api/recept/${id}`, { method: 'DELETE', credentials: 'include' }); router.push('/'); }
-            catch { showToast("Kan niet verwijderen"); }
+            catch { showToast(isNL ? "Kan niet verwijderen" : "Cannot delete"); }
         });
     };
 
     const sendEmail = async (e: React.FormEvent) => {
-        e.preventDefault(); setEmailStatus('Verzenden...');
+        e.preventDefault(); setEmailStatus(t('sending'));
         try {
             const res = await fetch('/api/email', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ recipeId: id, targetEmail: emailAddress }) });
-            if (res.ok) { setEmailStatus('Verstuurd!'); setTimeout(() => setEmailOpen(false), 2000); }
-            else { const err = await res.json(); setEmailStatus('Fout: ' + (err.error || 'Onbekend')); }
-        } catch { setEmailStatus('Netwerkfout'); }
+            if (res.ok) { setEmailStatus(isNL ? 'Verstuurd!' : 'Sent!'); setTimeout(() => setEmailOpen(false), 2000); }
+            else { const err = await res.json(); setEmailStatus((isNL ? 'Fout: ' : 'Error: ') + (err.error || (isNL ? 'Onbekend' : 'Unknown'))); }
+        } catch { setEmailStatus(isNL ? 'Netwerkfout' : 'Network error'); }
     };
 
     const startTimer = (id: string, msDuration: number) => {
@@ -512,7 +515,7 @@ export default function ReceptDetail() {
     // Format remaining time
     const formatTimeRemaining = (endTime: number) => {
         const remainingStr = endTime - Date.now();
-        if (remainingStr <= 0) return 'Klaar!';
+        if (remainingStr <= 0) return isNL ? 'Klaar!' : 'Done!';
 
         const totalSeconds = Math.floor(remainingStr / 1000);
         const hours = Math.floor(totalSeconds / 3600);
@@ -553,7 +556,7 @@ export default function ReceptDetail() {
     };
 
     if (loading) return <div className="spinner" style={{ margin: '50px auto', borderTopColor: 'var(--primary-color)' }}></div>;
-    if (errorMsg) return <div className="card" style={{ textAlign: 'center' }}><h2>{errorMsg}</h2><Link href="/" className="btn">Terug</Link></div>;
+    if (errorMsg) return <div className="card" style={{ textAlign: 'center' }}><h2>{errorMsg}</h2><Link href="/" className="btn">{t('back')}</Link></div>;
 
     const inputStyle = { padding: '8px 10px', fontSize: '0.95rem', borderRadius: '8px', border: '1px solid var(--border-color)', width: '100%' };
     const smallInputStyle = { ...inputStyle, width: '70px', textAlign: 'center' as const };
@@ -563,14 +566,14 @@ export default function ReceptDetail() {
             <div className="container-narrow" style={{ paddingBottom: '50px', margin: '0 auto' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                     <Link href="/" style={{ fontWeight: '500' }}>
-                        ← Terug naar overzicht
+                        ← {isNL ? 'Terug naar overzicht' : 'Back to overview'}
                     </Link>
                     <button
                         onClick={toggleWakeLock}
                         className={`btn ${wakeLockEnabled ? '' : 'btn-secondary'}`}
                         style={{ padding: '8px 16px', fontSize: '0.9rem' }}
                     >
-                        {wakeLockEnabled ? '🔥 Scherm blijft aan' : '📱 Kookmodus'}
+                        {wakeLockEnabled ? (isNL ? '🔥 Scherm blijft aan' : '🔥 Screen stays on') : (isNL ? '📱 Kookmodus' : '📱 Cook mode')}
                     </button>
                 </div>
 
@@ -608,10 +611,10 @@ export default function ReceptDetail() {
                     {editing ? (
                         <>
                             <input value={editTitle} onChange={e => setEditTitle(e.target.value)} style={{ ...inputStyle, fontSize: '1.6rem', fontWeight: '600', marginBottom: '10px' }} />
-                            <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder="Korte beschrijving..." style={{ ...inputStyle, marginBottom: '10px', resize: 'vertical' }} />
+                            <textarea value={editDescription} onChange={e => setEditDescription(e.target.value)} placeholder={isNL ? 'Korte beschrijving...' : 'Short description...'} style={{ ...inputStyle, marginBottom: '10px', resize: 'vertical' }} />
 
                             <div style={{ marginBottom: '20px' }}>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Tags (Druk op Enter)</label>
+                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{isNL ? 'Tags (Druk op Enter)' : 'Tags (Press Enter)'}</label>
                                 <div style={{ ...inputStyle, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '8px' }}>
                                     {editTags.map(t => (
                                         <span key={t} style={{ backgroundColor: 'var(--primary-color)', color: 'white', padding: '4px 10px', borderRadius: '15px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -619,7 +622,7 @@ export default function ReceptDetail() {
                                             <button type="button" onClick={() => removeTag(t)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: '1' }}>✕</button>
                                         </span>
                                     ))}
-                                    <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag} placeholder="Typ tag..." style={{ border: 'none', outline: 'none', flex: 1, minWidth: '100px', padding: '4px' }} />
+                                    <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag} placeholder={isNL ? 'Typ tag...' : 'Type tag...'} style={{ border: 'none', outline: 'none', flex: 1, minWidth: '100px', padding: '4px' }} />
                                 </div>
                             </div>
                         </>
@@ -641,32 +644,32 @@ export default function ReceptDetail() {
 
                     {recipe.originalUrl && (
                         <p style={{ color: 'var(--text-light)', marginBottom: '20px' }}>
-                            <a href={recipe.originalUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>Originele Bron</a>
+                            <a href={recipe.originalUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>{isNL ? 'Originele Bron' : 'Original Source'}</a>
                         </p>
                     )}
 
                     {/* --- OMSLAGFOTO EDITOR --- */}
                     {editing && (
                         <div style={{ marginTop: '15px', marginBottom: '30px', padding: '15px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--border-radius)' }}>
-                            <h3 style={{ marginBottom: '10px', fontSize: '1.1rem' }}>Omslagfoto (Hoofdafbeelding)</h3>
+                            <h3 style={{ marginBottom: '10px', fontSize: '1.1rem' }}>{isNL ? 'Omslagfoto (Hoofdafbeelding)' : 'Cover Photo (Main Image)'}</h3>
                             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>
-                                Kies de foto die wordt getoond op de startpagina. Je kan een afbeelding uploaden of uit je media selecteren.
+                                {isNL ? 'Kies de foto die wordt getoond op de startpagina. Je kan een afbeelding uploaden of uit je media selecteren.' : 'Choose the photo shown on the home page. You can upload an image or select from your media.'}
                             </p>
 
-                            <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start' }}>
+                            <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
                                 {/* Geselecteerde preview */}
                                 <div style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#e0e0e0', flexShrink: 0, position: 'relative' }}>
                                     {editThumbnail ? (
                                         <img src={editThumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                                     ) : (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.8rem', textAlign: 'center', padding: '10px' }}>Geen Omslagfoto</div>
+                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.8rem', textAlign: 'center', padding: '10px' }}>{isNL ? 'Geen Omslagfoto' : 'No Cover Photo'}</div>
                                     )}
                                 </div>
 
-                                <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                                <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '10px', minWidth: 0 }}>
                                     {/* Upload Button */}
                                     <label className="btn" style={{ cursor: 'pointer', textAlign: 'center', padding: '8px', fontSize: '0.9rem', backgroundColor: 'var(--primary-color)' }}>
-                                        {uploadingThumbnail ? 'Uploaden...' : 'Upload Nieuwe Omslagfoto'}
+                                        {uploadingThumbnail ? (isNL ? 'Uploaden...' : 'Uploading...') : (isNL ? 'Upload Nieuwe Omslagfoto' : 'Upload New Cover Photo')}
                                         <input type="file" accept="image/*" style={{ display: 'none' }} onChange={async (e) => {
                                             if (!e.target.files || e.target.files.length === 0) return;
                                             setUploadingThumbnail(true);
@@ -682,14 +685,42 @@ export default function ReceptDetail() {
                                         }} />
                                     </label>
 
-                                    {/* Kies uit Media */}
-                                    {editMedia.filter(u => u.includes('/api/thumbnail/') || u.match(/\.(jpeg|jpg|png|gif|webp)$/i) || u.startsWith('data:image')).length > 0 && (
+                                    {/* Kies uit Media en Suggesties */}
+                                    {(editMedia.filter(u => u.includes('/api/thumbnail/') || u.match(/\.(jpeg|jpg|png|gif|webp)$/i) || u.startsWith('data:image')).length > 0 || recipe.originalThumbnail || recipe.suggestedThumbnails) && (
                                         <div style={{ marginTop: '5px' }}>
-                                            <div style={{ fontSize: '0.85rem', marginBottom: '5px', fontWeight: 'bold' }}>Kies uit mediagalerij:</div>
-                                            <div style={{ display: 'flex', gap: '8px', overflowX: 'auto', paddingBottom: '5px' }}>
-                                                {editMedia.filter(u => u.includes('/api/thumbnail/') || u.match(/\.(jpeg|jpg|png|gif|webp)$/i) || u.startsWith('data:image')).map((url, idx) => (
-                                                    <img key={idx} src={url} onClick={() => setEditThumbnail(url)} style={{ width: '40px', height: '40px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: editThumbnail === url ? '2px solid var(--primary-color)' : '1px solid var(--border-color)' }} />
+                                            <div style={{ fontSize: '0.85rem', marginBottom: '5px', fontWeight: 'bold' }}>{isNL ? 'Kies uit suggesties en media:' : 'Choose from suggestions and media:'}</div>
+                                            <div style={{ display: 'flex', gap: '15px', overflowX: 'auto', paddingBottom: '10px' }}>
+                                                {/* Original Thumbnail */}
+                                                {recipe.originalThumbnail && (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                        <img src={recipe.originalThumbnail} onClick={() => setEditThumbnail(recipe.originalThumbnail)} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: editThumbnail === recipe.originalThumbnail ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? 'Originele Omslagfoto' : 'Original Cover Photo'} />
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{isNL ? 'Origineel' : 'Original'}</span>
+                                                    </div>
+                                                )}
+
+                                                {/* Suggested Thumbnails */}
+                                                {recipe.suggestedThumbnails && recipe.suggestedThumbnails.split(',').map((s: string) => s.trim()).filter(Boolean).map((url: string, idx: number) => (
+                                                    <div key={`sug-${idx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                        <img src={url} onClick={() => setEditThumbnail(url)} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: editThumbnail === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? `Suggestie ${idx + 1}` : `Suggestion ${idx + 1}`} />
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{isNL ? `Optie ${idx + 1}` : `Option ${idx + 1}`}</span>
+                                                    </div>
                                                 ))}
+
+                                                {/* Divider if we have suggestions and media */}
+                                                {((recipe.originalThumbnail || recipe.suggestedThumbnails) && editMedia.filter(u => u.includes('/api/thumbnail/') || u.match(/\.(jpeg|jpg|png|gif|webp)$/i) || u.startsWith('data:image')).length > 0) && (
+                                                    <div style={{ width: '1px', backgroundColor: 'var(--border-color)', margin: '0 5px' }} />
+                                                )}
+
+                                                {/* Editing Media Gallary Images - Filter out original and suggested to prevent duplicates! */}
+                                                {editMedia
+                                                    .filter(u => u.includes('/api/thumbnail/') || u.match(/\.(jpeg|jpg|png|gif|webp)$/i) || u.startsWith('data:image'))
+                                                    .filter(u => u !== recipe.originalThumbnail && !(recipe.suggestedThumbnails && recipe.suggestedThumbnails.includes(u)))
+                                                    .map((url, idx) => (
+                                                        <div key={`med-${idx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                                                            <img src={url} onClick={() => setEditThumbnail(url)} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: editThumbnail === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} />
+                                                            <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Media</span>
+                                                        </div>
+                                                    ))}
                                             </div>
                                         </div>
                                     )}
@@ -697,7 +728,7 @@ export default function ReceptDetail() {
                             </div>
 
                             {/* Extract from video button */}
-                            {editMedia.some(u => u.includes('/api/video/') || u.match(/\.(mp4|mov|webm)$/i)) && (
+                            {editMedia.some(u => u.includes('/api/video/') || u.match(/\.(mp4|mov|webm)$/i)) && !scrubbing && !choosingVideo && (
                                 <button onClick={() => {
                                     const vids = editMedia.filter(u => u.includes('/api/video/') || u.match(/\.(mp4|mov|webm)$/i));
                                     if (vids.length === 1) {
@@ -707,44 +738,47 @@ export default function ReceptDetail() {
                                         setChoosingVideo(true);
                                     }
                                 }} style={{ marginTop: '15px', width: '100%', padding: '10px', backgroundColor: '#ffffff', color: 'var(--text-primary)', border: '1px solid var(--border-color)', borderRadius: 'var(--border-radius-sm)', fontWeight: '500', cursor: 'pointer' }}>
-                                    Extraheer foto uit de video als Omslagfoto
+                                    {isNL ? 'Extraheer foto uit de video als Omslagfoto' : 'Extract frame from video as cover photo'}
                                 </button>
                             )}
 
                             {choosingVideo && (
                                 <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#fff', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
-                                    <div style={{ fontSize: '0.9rem', marginBottom: '10px', fontWeight: 'bold' }}>Kies de video waaruit je de cover foto wilt halen:</div>
+                                    <div style={{ fontSize: '0.9rem', marginBottom: '10px', fontWeight: 'bold' }}>{isNL ? 'Kies de video waaruit je de cover foto wilt halen:' : 'Choose the video to extract the cover photo from:'}</div>
                                     <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
                                         {editMedia.filter(u => u.includes('/api/video/') || u.match(/\.(mp4|mov|webm)$/i)).map((vUrl, idx) => (
-                                            <video key={idx} src={vUrl} onClick={() => {
+                                            <video key={idx} src={`${vUrl}#t=0.001`} onClick={() => {
                                                 setScrubbingVideoUrl(vUrl);
                                                 setChoosingVideo(false);
                                                 setScrubbing(true);
                                             }} style={{ width: '80px', height: '80px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: '1px solid var(--border-color)' }} muted preload="metadata" />
                                         ))}
                                     </div>
-                                    <button onClick={() => setChoosingVideo(false)} className="btn btn-secondary" style={{ marginTop: '10px', padding: '5px 10px', fontSize: '0.8rem' }}>Annuleren</button>
+                                    <button onClick={() => setChoosingVideo(false)} className="btn btn-secondary" style={{ marginTop: '10px', padding: '5px 10px', fontSize: '0.8rem' }}>{t('cancel')}</button>
                                 </div>
                             )}
 
                             {scrubbing && scrubbingVideoUrl && (
                                 <div style={{ marginTop: '15px' }}>
+                                    <div style={{ marginBottom: '15px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#000', display: 'flex', justifyContent: 'center' }}>
+                                        <video ref={videoRef} src={`${scrubbingVideoUrl}#t=0.001`} style={{ maxWidth: '100%', maxHeight: '400px' }} crossOrigin="anonymous" preload="auto" playsInline />
+                                    </div>
                                     <FilmstripScrubber videoRef={videoRef} onCapture={captureThumbnail} onCancel={() => { setScrubbing(false); setScrubbingVideoUrl(null); }} />
                                 </div>
                             )}
-                            <video ref={videoRef} src={scrubbingVideoUrl || undefined} style={{ display: 'none' }} crossOrigin="anonymous" preload="auto" />
+                            {!scrubbing && <video ref={videoRef} style={{ display: 'none' }} crossOrigin="anonymous" preload="auto" playsInline />}
                         </div>
                     )}
 
                     {/* --- UNIFIED MEDIA VIEWER EN EDITOR --- */}
                     {editing ? (
                         <div style={{ marginTop: '15px', marginBottom: '30px', padding: '15px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--border-radius)' }}>
-                            <h3 style={{ marginBottom: '10px', fontSize: '1.1rem' }}>Recept Media (Foto's & Video's)</h3>
+                            <h3 style={{ marginBottom: '10px', fontSize: '1.1rem' }}>{isNL ? "Recept Media (Foto's & Video's)" : 'Recipe Media (Photos & Videos)'}</h3>
                             <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>
-                                Beheer hier alle foto's en video's specifiek in dit recept.
+                                {isNL ? "Beheer hier alle foto's en video's specifiek in dit recept." : 'Manage all photos and videos for this recipe here.'}
                             </p>
 
-                            {uploadingMedia && <div style={{ marginBottom: '10px', color: 'var(--primary-color)' }}>Media uploaden...</div>}
+                            {uploadingMedia && <div style={{ marginBottom: '10px', color: 'var(--primary-color)' }}>{isNL ? 'Media uploaden...' : 'Uploading media...'}</div>}
 
                             <div
                                 style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '10px' }}
@@ -763,7 +797,7 @@ export default function ReceptDetail() {
                                 {/* Upload Button */}
                                 <label style={{ flexShrink: 0, width: '100px', cursor: 'pointer', border: '2px dashed var(--border-color)', borderRadius: '8px', overflow: 'hidden', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fafafa' }}>
                                     <span style={{ fontSize: '1.5rem', marginBottom: '5px' }}>+</span>
-                                    <span style={{ fontSize: '0.7rem', textAlign: 'center' }}>Toevoegen</span>
+                                    <span style={{ fontSize: '0.7rem', textAlign: 'center' }}>{t('add')}</span>
                                     <input type="file" multiple accept="image/*,video/*" style={{ display: 'none' }} onChange={async (e) => {
                                         if (!e.target.files || e.target.files.length === 0) return;
                                         setUploadingMedia(true);
@@ -782,86 +816,88 @@ export default function ReceptDetail() {
                                 </label>
 
                                 {/* Media Items */}
-                                {editMedia.map((url, idx) => {
-                                    const isVid = url.includes('/api/video/') || url.match(/\.(mp4|mov|webm)$/i) || url.startsWith('data:video');
-                                    return (
-                                        <div
-                                            key={idx}
-                                            draggable
-                                            onDragStart={(e) => { e.dataTransfer.setData('text/plain', idx.toString()); e.dataTransfer.effectAllowed = 'move'; }}
-                                            onDragOver={(e) => {
-                                                e.preventDefault();
-                                                e.dataTransfer.dropEffect = 'move';
-                                                const rect = e.currentTarget.getBoundingClientRect();
-                                                const x = e.clientX - rect.left;
-                                                const position = x < rect.width / 2 ? 'left' : 'right';
+                                {editMedia
+                                    .filter(u => u !== recipe.originalThumbnail && !(recipe.suggestedThumbnails && recipe.suggestedThumbnails.includes(u)))
+                                    .map((url, idx) => {
+                                        const isVid = url.includes('/api/video/') || url.match(/\.(mp4|mov|webm)$/i) || url.startsWith('data:video');
+                                        return (
+                                            <div
+                                                key={idx}
+                                                draggable
+                                                onDragStart={(e) => { e.dataTransfer.setData('text/plain', idx.toString()); e.dataTransfer.effectAllowed = 'move'; }}
+                                                onDragOver={(e) => {
+                                                    e.preventDefault();
+                                                    e.dataTransfer.dropEffect = 'move';
+                                                    const rect = e.currentTarget.getBoundingClientRect();
+                                                    const x = e.clientX - rect.left;
+                                                    const position = x < rect.width / 2 ? 'left' : 'right';
 
-                                                if (dragOverMediaIdx !== idx || dragMediaPosition !== position) {
-                                                    setDragOverMediaIdx(idx);
-                                                    setDragMediaPosition(position);
-                                                }
-                                            }}
-                                            onDrop={(e) => {
-                                                e.preventDefault();
-                                                e.stopPropagation();
+                                                    if (dragOverMediaIdx !== idx || dragMediaPosition !== position) {
+                                                        setDragOverMediaIdx(idx);
+                                                        setDragMediaPosition(position);
+                                                    }
+                                                }}
+                                                onDrop={(e) => {
+                                                    e.preventDefault();
+                                                    e.stopPropagation();
 
-                                                const fromIdxStr = e.dataTransfer.getData('text/plain');
-                                                if (!fromIdxStr) return;
-                                                const fromIdx = parseInt(fromIdxStr, 10);
+                                                    const fromIdxStr = e.dataTransfer.getData('text/plain');
+                                                    if (!fromIdxStr) return;
+                                                    const fromIdx = parseInt(fromIdxStr, 10);
 
-                                                const finalPosition = dragMediaPosition;
-                                                setDragOverMediaIdx(null);
-                                                setDragMediaPosition(null);
+                                                    const finalPosition = dragMediaPosition;
+                                                    setDragOverMediaIdx(null);
+                                                    setDragMediaPosition(null);
 
-                                                if (fromIdx === idx) return;
+                                                    if (fromIdx === idx) return;
 
-                                                setEditMedia(prev => {
-                                                    const arr = [...prev];
-                                                    const item = arr.splice(fromIdx, 1)[0];
+                                                    setEditMedia(prev => {
+                                                        const arr = [...prev];
+                                                        const item = arr.splice(fromIdx, 1)[0];
 
-                                                    let targetIdx = idx;
-                                                    // Because an item before it was removed, the target index shifts left
-                                                    if (fromIdx < idx) targetIdx -= 1;
-                                                    // If dropping on the right side, it goes after the target
-                                                    if (finalPosition === 'right') targetIdx += 1;
+                                                        let targetIdx = idx;
+                                                        // Because an item before it was removed, the target index shifts left
+                                                        if (fromIdx < idx) targetIdx -= 1;
+                                                        // If dropping on the right side, it goes after the target
+                                                        if (finalPosition === 'right') targetIdx += 1;
 
-                                                    arr.splice(targetIdx, 0, item);
-                                                    return arr;
-                                                });
-                                            }}
-                                            style={{
-                                                flexShrink: 0, width: '100px', cursor: 'grab', position: 'relative',
-                                                borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)',
-                                                boxShadow: dragOverMediaIdx === idx && dragMediaPosition === 'left' ? 'inset 4px 0 0 var(--primary-color)'
-                                                    : dragOverMediaIdx === idx && dragMediaPosition === 'right' ? 'inset -4px 0 0 var(--primary-color)'
-                                                        : 'none',
-                                                transition: 'box-shadow 0.2s ease',
-                                                backgroundColor: '#fff'
-                                            }}
-                                        >
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#eee', padding: '2px', fontSize: '0.65rem' }}>
-                                                <button onClick={() => {
-                                                    if (idx > 0) setEditMedia(prev => { const n = [...prev];[n[idx - 1], n[idx]] = [n[idx], n[idx - 1]]; return n; });
-                                                }} disabled={idx === 0} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 4px', color: idx === 0 ? '#ccc' : '#000' }}>‹</button>
-                                                <span>{idx + 1}</span>
-                                                <button onClick={() => {
-                                                    if (idx < editMedia.length - 1) setEditMedia(prev => { const n = [...prev];[n[idx + 1], n[idx]] = [n[idx], n[idx + 1]]; return n; });
-                                                }} disabled={idx === editMedia.length - 1} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 4px', color: idx === editMedia.length - 1 ? '#ccc' : '#000' }}>›</button>
+                                                        arr.splice(targetIdx, 0, item);
+                                                        return arr;
+                                                    });
+                                                }}
+                                                style={{
+                                                    flexShrink: 0, width: '100px', cursor: 'grab', position: 'relative',
+                                                    borderRadius: '8px', overflow: 'hidden', border: '1px solid var(--border-color)',
+                                                    boxShadow: dragOverMediaIdx === idx && dragMediaPosition === 'left' ? 'inset 4px 0 0 var(--primary-color)'
+                                                        : dragOverMediaIdx === idx && dragMediaPosition === 'right' ? 'inset -4px 0 0 var(--primary-color)'
+                                                            : 'none',
+                                                    transition: 'box-shadow 0.2s ease',
+                                                    backgroundColor: '#fff'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', backgroundColor: '#eee', padding: '2px', fontSize: '0.65rem' }}>
+                                                    <button onClick={() => {
+                                                        if (idx > 0) setEditMedia(prev => { const n = [...prev];[n[idx - 1], n[idx]] = [n[idx], n[idx - 1]]; return n; });
+                                                    }} disabled={idx === 0} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 4px', color: idx === 0 ? '#ccc' : '#000' }}>‹</button>
+                                                    <span>{idx + 1}</span>
+                                                    <button onClick={() => {
+                                                        if (idx < editMedia.length - 1) setEditMedia(prev => { const n = [...prev];[n[idx + 1], n[idx]] = [n[idx], n[idx + 1]]; return n; });
+                                                    }} disabled={idx === editMedia.length - 1} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 4px', color: idx === editMedia.length - 1 ? '#ccc' : '#000' }}>›</button>
+                                                </div>
+                                                {isVid ? (
+                                                    <video src={`${url}#t=0.001`} style={{ width: '100%', height: '60px', objectFit: 'cover' }} muted preload="metadata" />
+                                                ) : (
+                                                    <img src={url} style={{ width: '100%', height: '60px', objectFit: 'cover' }} />
+                                                )}
+                                                <button onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    showConfirm(isNL ? "Weet je zeker dat je deze media wilt verwijderen?" : "Are you sure you want to delete this media?", () => {
+                                                        setEditMedia(prev => prev.filter((_, i) => i !== idx));
+                                                    });
+                                                }} style={{ position: 'absolute', top: '25px', right: '5px', background: 'rgba(255,0,0,0.8)', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
                                             </div>
-                                            {isVid ? (
-                                                <video src={url} style={{ width: '100%', height: '60px', objectFit: 'cover' }} muted preload="metadata" />
-                                            ) : (
-                                                <img src={url} style={{ width: '100%', height: '60px', objectFit: 'cover' }} />
-                                            )}
-                                            <button onClick={(e) => {
-                                                e.stopPropagation();
-                                                showConfirm("Weet je zeker dat je deze media wilt verwijderen?", () => {
-                                                    setEditMedia(prev => prev.filter((_, i) => i !== idx));
-                                                });
-                                            }} style={{ position: 'absolute', top: '25px', right: '5px', background: 'rgba(255,0,0,0.8)', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '10px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>✕</button>
-                                        </div>
-                                    )
-                                })}
+                                        )
+                                    })}
                             </div>
 
                         </div>
@@ -878,7 +914,7 @@ export default function ReceptDetail() {
                                                     <>
                                                         <video
                                                             ref={(el) => { videoRefs.current[idx] = el; }}
-                                                            src={src}
+                                                            src={`${src}#t=0.001`}
                                                             controls
                                                             playsInline
                                                             preload="auto"
@@ -952,14 +988,14 @@ export default function ReceptDetail() {
                     {/* Porties */}
                     {editing ? (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '15px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--border-radius-sm)', marginBottom: '30px' }}>
-                            <strong>Porties:</strong>
+                            <strong>{isNL ? 'Porties:' : 'Servings:'}</strong>
                             <button className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={() => setEditPortions(Math.max(1, editPortions - 1))}>-</button>
                             <span style={{ fontSize: '1.2rem', fontWeight: '600', minWidth: '30px', textAlign: 'center' }}>{editPortions}</span>
                             <button className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={() => setEditPortions(editPortions + 1)}>+</button>
                         </div>
                     ) : (
                         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--border-radius-sm)', marginBottom: '30px' }}>
-                            <strong>Voor hoeveel personen?</strong>
+                            <strong>{isNL ? 'Voor hoeveel personen?' : 'How many servings?'}</strong>
                             <button className="btn btn-secondary" onClick={() => setTargetPortions(Math.max(1, targetPortions - 1))} style={{ padding: '8px 12px' }}>-</button>
                             <span style={{ fontSize: '1.2rem', fontWeight: '600', minWidth: '30px', textAlign: 'center' }}>{targetPortions}</span>
                             <button className="btn btn-secondary" onClick={() => setTargetPortions(targetPortions + 1)} style={{ padding: '8px 12px' }}>+</button>
@@ -967,7 +1003,7 @@ export default function ReceptDetail() {
                     )}
 
                     {/* Ingrediënten */}
-                    <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>Benodigdheden</h2>
+                    <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>{t('ingredients')}</h2>
                     {editing ? (
                         <div style={{ marginBottom: '30px' }}>
                             {editIngredients.map((ing, idx) => (
@@ -989,17 +1025,17 @@ export default function ReceptDetail() {
                                     }}
                                     style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px', cursor: 'grab' }}
                                 >
-                                    <div style={{ color: 'var(--text-light)', padding: '0 8px', fontSize: '1.2rem', cursor: 'grab' }} title="Sleep om te verplaatsen">
+                                    <div style={{ color: 'var(--text-light)', padding: '0 8px', fontSize: '1.2rem', cursor: 'grab' }} title={isNL ? 'Sleep om te verplaatsen' : 'Drag to reorder'}>
                                         ⋮⋮
                                     </div>
                                     <input type="number" value={ing.amount ?? ''} onChange={e => updateIngredient(idx, 'amount', e.target.value)} placeholder="#" style={smallInputStyle} />
-                                    <input value={ing.unit} onChange={e => updateIngredient(idx, 'unit', e.target.value)} placeholder="Eenheid" style={{ ...inputStyle, width: '80px' }} />
-                                    <input value={ing.name} onChange={e => updateIngredient(idx, 'name', e.target.value)} placeholder="Ingrediënt" style={{ ...inputStyle, flex: 1 }} />
+                                    <input value={ing.unit} onChange={e => updateIngredient(idx, 'unit', e.target.value)} placeholder={isNL ? 'Eenheid' : 'Unit'} style={{ ...inputStyle, width: '80px' }} />
+                                    <input value={ing.name} onChange={e => updateIngredient(idx, 'name', e.target.value)} placeholder={t('ingredientName')} style={{ ...inputStyle, flex: 1 }} />
                                     <button onClick={() => removeIngredient(idx)} style={{ background: 'none', border: 'none', color: '#D47B7B', fontSize: '1.2rem', cursor: 'pointer', padding: '4px 8px' }}>✕</button>
                                 </div>
                             ))}
                             <button className="btn btn-secondary" style={{ marginTop: '8px', padding: '8px 16px', fontSize: '0.85rem' }} onClick={addIngredient}>
-                                + Ingrediënt toevoegen
+                                {t('addIngredient')}
                             </button>
                         </div>
                     ) : (
@@ -1030,7 +1066,7 @@ export default function ReceptDetail() {
                     )}
 
                     {/* Stappen */}
-                    <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>Bereidingswijze</h2>
+                    <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>{isNL ? 'Bereidingswijze' : 'Preparation'}</h2>
                     {editing ? (
                         <div style={{ marginBottom: '30px' }}>
                             {editSteps.map((step, idx) => (
@@ -1052,7 +1088,7 @@ export default function ReceptDetail() {
                                     }}
                                     style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', marginBottom: '8px', cursor: 'grab' }}
                                 >
-                                    <div style={{ color: 'var(--text-light)', padding: '10px 8px 0', fontSize: '1.2rem', cursor: 'grab' }} title="Sleep om te verplaatsen">
+                                    <div style={{ color: 'var(--text-light)', padding: '10px 8px 0', fontSize: '1.2rem', cursor: 'grab' }} title={isNL ? 'Sleep om te verplaatsen' : 'Drag to reorder'}>
                                         ⋮⋮
                                     </div>
                                     <span style={{ color: 'var(--text-light)', fontWeight: '600', minWidth: '25px', paddingTop: '10px' }}>{idx + 1}.</span>
@@ -1062,7 +1098,7 @@ export default function ReceptDetail() {
                                 </div>
                             ))}
                             <button className="btn btn-secondary" style={{ marginTop: '8px', padding: '8px 16px', fontSize: '0.85rem' }} onClick={addStep}>
-                                + Stap toevoegen
+                                {t('addStep')}
                             </button>
                         </div>
                     ) : (
@@ -1071,9 +1107,7 @@ export default function ReceptDetail() {
                                 const checked = !!checkedSteps[idx];
 
                                 const renderStepText = (text: string) => {
-                                    // Match numbers with possible decimals, followed by a time unit.
-                                    // The global flag (/g) allows matching multiple times per step.
-                                    const splitRegex = /((?:\d+(?:[.,]\d+)?)\s*(?:minuten|minutes|minuut|mins|min\b|seconden|secondes|second|sec\b|uren|hours|uur|hrs\b|dagen|days|dag\b))/gi;
+                                    const splitRegex = buildTimerRegex();
 
                                     if (!text.match(splitRegex)) return text;
 
@@ -1081,21 +1115,13 @@ export default function ReceptDetail() {
                                     return (
                                         <>
                                             {parts.map((part, i) => {
-                                                // Even indices are normal text, odd indices are the matched time strings
-                                                if (i % 2 === 0) return <span key={i}>{part}</span>;
+                                                // Check if this part is actually a timer match
+                                                const timerRegex = buildTimerRegex();
+                                                if (!part.match(timerRegex)) return <span key={i}>{part}</span>;
 
                                                 const fullMatchText = part;
-                                                const lowerPart = part.toLowerCase();
-                                                const numMatch = part.match(/(\d+(?:[.,]\d+)?)/);
-                                                if (!numMatch) return <span key={i}>{part}</span>;
-
-                                                const val = parseFloat(numMatch[1].replace(',', '.'));
-                                                let ms = 0;
-                                                if (lowerPart.includes('sec')) ms = val * 1000;
-                                                else if (lowerPart.includes('min')) ms = val * 60 * 1000;
-                                                else if (lowerPart.includes('uur') || lowerPart.includes('hour') || lowerPart.includes('hrs')) ms = val * 60 * 60 * 1000;
-                                                else if (lowerPart.includes('dag') || lowerPart.includes('day')) ms = val * 24 * 60 * 60 * 1000;
-                                                else ms = val * 60 * 1000; // fallback to minutes
+                                                const ms = parseTimeToMs(part);
+                                                if (ms <= 0) return <span key={i}>{part}</span>;
 
                                                 const timerId = `${idx}-${i}-${fullMatchText}`;
 
@@ -1167,16 +1193,16 @@ export default function ReceptDetail() {
                         {editing ? (
                             <>
                                 <button className="btn" style={{ flex: 1, padding: '10px 8px', fontSize: '0.85rem' }} onClick={saveEditing} disabled={saving}>
-                                    {saving ? 'Opslaan...' : 'Opslaan'}
+                                    {saving ? t('saving') : t('save')}
                                 </button>
                                 <button className="btn btn-secondary" style={{ flex: 1, padding: '10px 8px', fontSize: '0.85rem' }} onClick={cancelEditing}>
-                                    Annuleren
+                                    {t('cancel')}
                                 </button>
                             </>
                         ) : (
                             <>
                                 <button className="btn" style={{ flex: 1, padding: '10px 8px', fontSize: '0.85rem' }} onClick={startEditing}>
-                                    Bewerken
+                                    {t('edit')}
                                 </button>
                                 <button className="btn btn-secondary" style={{ flex: 1, padding: '10px 8px', fontSize: '0.85rem' }} onClick={() => {
                                     const shareUrl = `${window.location.origin}/share/${id}`;
@@ -1190,17 +1216,17 @@ export default function ReceptDetail() {
                                                 ta.style.position = 'fixed'; ta.style.opacity = '0';
                                                 document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta);
                                             }
-                                            showToast("Link gekopieerd!");
-                                        } catch { showToast("Kan link niet kopiëren"); }
+                                            showToast(isNL ? "Link gekopieerd!" : "Link copied!");
+                                        } catch { showToast(isNL ? "Kan link niet kopiëren" : "Cannot copy link"); }
                                     }
                                 }}>
-                                    Delen
+                                    {t('share')}
                                 </button>
                                 <button className="btn btn-secondary" style={{ flex: 1, padding: '10px 8px', fontSize: '0.85rem' }} onClick={() => setEmailOpen(!emailOpen)}>
-                                    E-mailen
+                                    {isNL ? 'E-mailen' : 'Email'}
                                 </button>
                                 <button className="btn btn-danger" style={{ flex: 1, padding: '10px 8px', fontSize: '0.85rem' }} onClick={handleDelete}>
-                                    Verwijderen
+                                    {t('delete')}
                                 </button>
                             </>
                         )}
@@ -1209,10 +1235,10 @@ export default function ReceptDetail() {
                     {/* Email */}
                     {emailOpen && (
                         <form onSubmit={sendEmail} style={{ marginTop: '20px', padding: '20px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--border-radius-sm)' }}>
-                            <label>Naar wie wil je het sturen?</label>
+                            <label>{isNL ? 'Naar wie wil je het sturen?' : 'Who do you want to send it to?'}</label>
                             <div style={{ display: 'flex', gap: '10px', marginTop: '10px' }}>
                                 <input type="email" value={emailAddress} onChange={e => setEmailAddress(e.target.value)} required placeholder="oma@familie.nl" style={{ flex: 1 }} />
-                                <button type="submit" className="btn">Verstuur</button>
+                                <button type="submit" className="btn">{t('send')}</button>
                             </div>
                             {emailStatus && <p style={{ marginTop: '10px', fontWeight: '500' }}>{emailStatus}</p>}
                         </form>
@@ -1228,11 +1254,11 @@ export default function ReceptDetail() {
                                 <div style={{ display: 'flex', gap: '12px', justifyContent: 'center' }}>
                                     {modalType === 'confirm' ? (
                                         <>
-                                            <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>Annuleren</button>
-                                            <button className="btn btn-danger" onClick={() => { setModalOpen(false); modalCallback?.(); }}>Ja, verwijder</button>
+                                            <button className="btn btn-secondary" onClick={() => setModalOpen(false)}>{t('cancel')}</button>
+                                            <button className="btn btn-danger" onClick={() => { setModalOpen(false); modalCallback?.(); }}>{isNL ? 'Ja, verwijder' : 'Yes, delete'}</button>
                                         </>
                                     ) : (
-                                        <button className="btn" onClick={() => setModalOpen(false)}>Oké</button>
+                                        <button className="btn" onClick={() => setModalOpen(false)}>{isNL ? 'Oké' : 'OK'}</button>
                                     )}
                                 </div>
                             </div>

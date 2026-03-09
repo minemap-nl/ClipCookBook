@@ -45,6 +45,7 @@ model Step {
 model ImportJob {
   id        String   @id @default(cuid())
   url       String
+  deepSearch Boolean  @default(false)
   status    String   @default("PENDING") // PENDING, PROCESSING, COMPLETED, ERROR
   message   String   @default("Wachten in wachtrij...") // Progress message
   recipeId  String?

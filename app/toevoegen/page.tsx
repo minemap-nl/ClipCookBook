@@ -3,10 +3,13 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n';
 
 export default function Toevoegen() {
+    const { t, isNL } = useI18n();
     const [activeTab, setActiveTab] = useState<'link' | 'photo' | 'manual'>('link');
     const [url, setUrl] = useState('');
+    const [deepSearch, setDeepSearch] = useState(false);
     const [loading, setLoading] = useState(false);
     const [errorLine, setErrorLine] = useState('');
     const [aiEnabled, setAiEnabled] = useState(false);
@@ -72,14 +75,14 @@ export default function Toevoegen() {
             const res = await fetch('/api/extract', {
                 method: 'POST', credentials: 'include',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url })
+                body: JSON.stringify({ url, deepSearch })
             });
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Er ging iets fout bij het verwerken.');
+            if (!res.ok) throw new Error(data.error || (isNL ? 'Er ging iets fout bij het verwerken.' : 'Something went wrong during processing.'));
 
             if (!data.jobId && data.recipeId) {
                 // Recipe already exists, show info message and do NOT clear URL
-                setErrorLine(`Dit recept staat al in je database! Bekijk het hier: /recept/${data.recipeId}`);
+                setErrorLine(isNL ? `Dit recept staat al in je database! Bekijk het hier: /recept/${data.recipeId}` : `This recipe is already in your database! View it here: /recept/${data.recipeId}`);
                 setLoading(false);
             } else {
                 // Clear URL so user can paste the next one
@@ -134,7 +137,7 @@ export default function Toevoegen() {
             });
             const data = await res.json();
 
-            if (!res.ok) throw new Error(data.error || 'Er ging iets fout bij het verwerken.');
+            if (!res.ok) throw new Error(data.error || (isNL ? 'Er ging iets fout bij het verwerken.' : 'Something went wrong during processing.'));
 
             router.push(`/recept/${data.recipeId}`);
         } catch (err: any) {
@@ -177,7 +180,7 @@ export default function Toevoegen() {
     async function handleManualSubmit(e: React.FormEvent) {
         e.preventDefault();
         if (!title.trim()) {
-            setErrorLine('Titel is verplicht.');
+            setErrorLine(isNL ? 'Titel is verplicht.' : 'Title is required.');
             return;
         }
 
@@ -206,7 +209,7 @@ export default function Toevoegen() {
             });
 
             const data = await res.json();
-            if (!res.ok) throw new Error(data.error || 'Fout bij opslaan');
+            if (!res.ok) throw new Error(data.error || (isNL ? 'Fout bij opslaan' : 'Error saving'));
             router.push(`/recept/${data.recipeId}`);
 
         } catch (err: any) {
@@ -220,37 +223,37 @@ export default function Toevoegen() {
         <div style={{ maxWidth: '800px', margin: '40px auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <Link href="/" style={{ fontWeight: '500' }}>
-                    ← Terug naar overzicht
+                    ← {isNL ? 'Terug naar overzicht' : 'Back to overview'}
                 </Link>
             </div>
             <div className="card" style={{ margin: '0' }}>
-                <h1 style={{ marginBottom: '20px', textAlign: 'center' }}>Recept Toevoegen</h1>
+                <h1 style={{ marginBottom: '20px', textAlign: 'center' }}>{t('addRecipeTitle')}</h1>
 
                 <div style={{ display: 'flex', borderBottom: '2px solid var(--border-color)', marginBottom: '30px', overflowX: 'auto' }}>
                     <button
                         onClick={() => setActiveTab('link')}
                         style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: activeTab === 'link' ? '3px solid var(--primary-color)' : 'none', fontWeight: activeTab === 'link' ? 'bold' : 'normal', color: activeTab === 'link' ? 'var(--primary-color)' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '1rem', whiteSpace: 'nowrap' }}
                     >
-                        Link Importeren
+                        {isNL ? 'Link Importeren' : 'Import Link'}
                     </button>
                     {aiEnabled && (
                         <button
                             onClick={() => setActiveTab('photo')}
                             style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: activeTab === 'photo' ? '3px solid var(--primary-color)' : 'none', fontWeight: activeTab === 'photo' ? 'bold' : 'normal', color: activeTab === 'photo' ? 'var(--primary-color)' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '1rem', whiteSpace: 'nowrap' }}
                         >
-                            Foto('s) Importeren
+                            {isNL ? "Foto('s) Importeren" : 'Import Photo(s)'}
                         </button>
                     )}
                     <button
                         onClick={() => setActiveTab('manual')}
                         style={{ flex: 1, padding: '15px', background: 'none', border: 'none', borderBottom: activeTab === 'manual' ? '3px solid var(--primary-color)' : 'none', fontWeight: activeTab === 'manual' ? 'bold' : 'normal', color: activeTab === 'manual' ? 'var(--primary-color)' : 'var(--text-secondary)', cursor: 'pointer', fontSize: '1rem', whiteSpace: 'nowrap' }}
                     >
-                        Handmatig Aanmaken
+                        {isNL ? 'Handmatig Aanmaken' : 'Create Manually'}
                     </button>
                 </div>
 
                 {errorLine && (
-                    <div style={{ backgroundColor: errorLine.includes('al in je database') ? '#E8F5E9' : '#FCEDED', color: errorLine.includes('al in je database') ? '#2E7D32' : '#B34A4A', padding: '12px', borderRadius: '8px', marginBottom: '20px' }}>
+                    <div style={{ backgroundColor: errorLine.includes(isNL ? 'al in je database' : 'already in your database') ? '#E8F5E9' : '#FCEDED', color: errorLine.includes(isNL ? 'al in je database' : 'already in your database') ? '#2E7D32' : '#B34A4A', padding: '12px', borderRadius: '8px', marginBottom: '20px' }}>
                         {errorLine.includes('/recept/') ? (
                             <>
                                 {errorLine.split('/recept/')[0]}
@@ -268,7 +271,7 @@ export default function Toevoegen() {
                     // --- TAB 1: Link Importer ---
                     <div>
                         <p style={{ color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
-                            Plak een link van Instagram of YouTube (bijv. een Reel) en de digitale oma destilleert automatisch het lijstje en de instructies!
+                            {isNL ? 'Plak een link van Instagram of YouTube (bijv. een Reel) en de digitale oma destilleert automatisch het lijstje en de instructies!' : 'Paste a link from Instagram or YouTube (e.g. a Reel) and the AI will automatically extract the ingredients and instructions!'}
                         </p>
                         <form onSubmit={handleImport}>
                             <div style={{ marginBottom: '20px' }}>
@@ -279,18 +282,31 @@ export default function Toevoegen() {
                                     onChange={e => setUrl(e.target.value)}
                                     disabled={loading}
                                     required
-                                    style={{ ...inputStyle, padding: '16px' }}
+                                    style={{ ...inputStyle, padding: '16px', marginBottom: '10px' }}
                                 />
+                                <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', userSelect: 'none', color: 'var(--text-secondary)', backgroundColor: 'var(--bg-secondary)', padding: '12px 16px', borderRadius: '8px', border: '1px solid var(--border-color)' }}>
+                                    <span>{isNL ? 'Deep Search (Forceer AI video & audio analyse)' : 'Deep Search (Force AI video & audio analysis)'}</span>
+                                    <div style={{ position: 'relative', width: '44px', height: '24px', backgroundColor: deepSearch ? 'var(--primary-color)' : '#ccc', borderRadius: '24px', transition: 'background-color 0.3s' }}>
+                                        <div style={{ position: 'absolute', top: '2px', left: deepSearch ? '22px' : '2px', width: '20px', height: '20px', backgroundColor: 'white', borderRadius: '50%', transition: 'left 0.3s', boxShadow: '0 2px 4px rgba(0,0,0,0.2)' }} />
+                                    </div>
+                                    <input
+                                        type="checkbox"
+                                        checked={deepSearch}
+                                        onChange={e => setDeepSearch(e.target.checked)}
+                                        disabled={loading}
+                                        style={{ display: 'none' }}
+                                    />
+                                </label>
                             </div>
                             <button type="submit" className="btn" disabled={loading} style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }}>
-                                {loading ? <span className="spinner" style={{ display: 'inline-block', margin: '0 auto', borderTopColor: 'white' }}></span> : 'Genereer Recept ✨'}
+                                {loading ? <span className="spinner" style={{ display: 'inline-block', margin: '0 auto', borderTopColor: 'white' }}></span> : (isNL ? 'Genereer Recept ✨' : 'Generate Recipe ✨')}
                             </button>
                         </form>
 
                         {/* Active Jobs UI */}
                         {jobs.length > 0 && (
                             <div style={{ marginTop: '40px', paddingTop: '20px', borderTop: '2px solid var(--border-color)' }}>
-                                <h3 style={{ marginBottom: '15px' }}>Verwerkingen</h3>
+                                <h3 style={{ marginBottom: '15px' }}>{isNL ? 'Verwerkingen' : 'Processing Queue'}</h3>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
                                     {jobs.map((job) => (
                                         <div key={job.id} style={{
@@ -333,7 +349,7 @@ export default function Toevoegen() {
                                                     className="btn"
                                                     style={{ padding: '8px 16px', fontSize: '0.9rem', flexShrink: 0 }}
                                                 >
-                                                    Bekijk Recept
+                                                    {isNL ? 'Bekijk Recept' : 'View Recipe'}
                                                 </button>
                                             )}
                                         </div>
@@ -346,7 +362,7 @@ export default function Toevoegen() {
                     // --- TAB 1B: Photo Importer ---
                     <div>
                         <p style={{ color: 'var(--text-secondary)', marginBottom: '20px', lineHeight: '1.5' }}>
-                            Upload foto's van een recept in een kookboek, een ingrediëntenlijstje of zelfs een screenshot. De digitale oma leest het en zet het voor je om!
+                            {isNL ? "Upload foto's van een recept in een kookboek, een ingrediëntenlijstje of zelfs een screenshot. De digitale oma leest het en zet het voor je om!" : 'Upload photos of a recipe from a cookbook, an ingredient list, or even a screenshot. The AI will read it and convert it for you!'}
                         </p>
 
                         <form onSubmit={handlePhotoSubmit}>
@@ -361,14 +377,14 @@ export default function Toevoegen() {
                                     />
                                     <div style={{ ...inputStyle, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '10px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', border: '2px dashed var(--primary-color)', transition: 'var(--transition)', width: '100%' }}>
                                         <span style={{ fontSize: '2rem' }}>📸</span>
-                                        <span style={{ fontWeight: '500', textAlign: 'center' }}>Klik hier of sleep foto's hierheen</span>
+                                        <span style={{ fontWeight: '500', textAlign: 'center' }}>{isNL ? "Klik hier of sleep foto's hierheen" : 'Click here or drag photos here'}</span>
                                     </div>
                                 </div>
                             </div>
 
                             {photoPreviews.length > 0 && (
                                 <div style={{ marginBottom: '30px' }}>
-                                    <h4 style={{ marginBottom: '10px' }}>Geselecteerde foto's ({photoPreviews.length})</h4>
+                                    <h4 style={{ marginBottom: '10px' }}>{isNL ? `Geselecteerde foto's (${photoPreviews.length})` : `Selected photos (${photoPreviews.length})`}</h4>
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '15px' }}>
                                         {photoPreviews.map((src, idx) => (
                                             <div key={idx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
@@ -387,7 +403,7 @@ export default function Toevoegen() {
                             )}
 
                             <button type="submit" className="btn" disabled={loading || photos.length === 0} style={{ width: '100%', padding: '16px', fontSize: '1.1rem' }}>
-                                {loading ? <span className="spinner" style={{ display: 'inline-block', margin: '0 auto', borderTopColor: 'white' }}></span> : 'Genereer Recept ✨'}
+                                {loading ? <span className="spinner" style={{ display: 'inline-block', margin: '0 auto', borderTopColor: 'white' }}></span> : (isNL ? 'Genereer Recept ✨' : 'Generate Recipe ✨')}
                             </button>
                         </form>
                     </div>
@@ -397,16 +413,16 @@ export default function Toevoegen() {
 
                         {/* Basis Info */}
                         <div style={{ marginBottom: '30px' }}>
-                            <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>Algemeen</h2>
+                            <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>{isNL ? 'Algemeen' : 'General'}</h2>
 
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Titel *</label>
-                            <input type="text" value={title} onChange={e => setTitle(e.target.value)} required placeholder="Bijv. Oma's Appeltaart" style={{ ...inputStyle, fontSize: '1.4rem', fontWeight: '500' }} />
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{isNL ? 'Titel' : 'Title'} *</label>
+                            <input type="text" value={title} onChange={e => setTitle(e.target.value)} required placeholder={isNL ? "Bijv. Oma's Appeltaart" : "E.g. Grandma's Apple Pie"} style={{ ...inputStyle, fontSize: '1.4rem', fontWeight: '500' }} />
 
-                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Korte Beschrijving</label>
-                            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Wat maakt dit recept zo lekker?" style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} />
+                            <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{isNL ? 'Korte Beschrijving' : 'Short Description'}</label>
+                            <textarea value={description} onChange={e => setDescription(e.target.value)} placeholder={isNL ? 'Wat maakt dit recept zo lekker?' : 'What makes this recipe so delicious?'} style={{ ...inputStyle, minHeight: '80px', resize: 'vertical' }} />
 
                             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--border-radius-sm)', marginBottom: '20px' }}>
-                                <strong>Voor hoeveel personen?</strong>
+                                <strong>{isNL ? 'Voor hoeveel personen?' : 'How many servings?'}</strong>
                                 <button type="button" className="btn btn-secondary" onClick={() => setPortions(Math.max(1, portions - 1))} style={{ padding: '8px 12px' }}>-</button>
                                 <span style={{ fontSize: '1.2rem', fontWeight: '600', minWidth: '30px', textAlign: 'center' }}>{portions}</span>
                                 <button type="button" className="btn btn-secondary" onClick={() => setPortions(portions + 1)} style={{ padding: '8px 12px' }}>+</button>
@@ -414,7 +430,7 @@ export default function Toevoegen() {
 
                             {/* Tag Manager */}
                             <div style={{ marginBottom: '20px' }}>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Tags (Druk op Enter)</label>
+                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{isNL ? 'Tags (Druk op Enter)' : 'Tags (Press Enter)'}</label>
                                 <div style={{ ...inputStyle, display: 'flex', flexWrap: 'wrap', gap: '8px', padding: '8px' }}>
                                     {tags.map(t => (
                                         <span key={t} style={{ backgroundColor: 'var(--primary-color)', color: 'white', padding: '4px 10px', borderRadius: '15px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}>
@@ -422,12 +438,12 @@ export default function Toevoegen() {
                                             <button type="button" onClick={() => removeTag(t)} style={{ background: 'none', border: 'none', color: 'rgba(255,255,255,0.7)', cursor: 'pointer', padding: 0, fontSize: '1rem', lineHeight: '1' }}>✕</button>
                                         </span>
                                     ))}
-                                    <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag} placeholder="Typ tag..." style={{ border: 'none', outline: 'none', flex: 1, minWidth: '100px', padding: '4px', backgroundColor: 'transparent' }} />
+                                    <input type="text" value={tagInput} onChange={e => setTagInput(e.target.value)} onKeyDown={addTag} placeholder={isNL ? 'Typ tag...' : 'Type tag...'} style={{ border: 'none', outline: 'none', flex: 1, minWidth: '100px', padding: '4px', backgroundColor: 'transparent' }} />
                                 </div>
                             </div>
 
                             <div style={{ marginBottom: '30px' }}>
-                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>Eigen Media Uploaden (Optioneel, foto's & video's)</label>
+                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{isNL ? "Eigen Media Uploaden (Optioneel, foto's & video's)" : 'Upload Media (Optional, photos & videos)'}</label>
                                 <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', width: '100%' }}>
                                     <input
                                         type="file"
@@ -442,7 +458,7 @@ export default function Toevoegen() {
                                         style={{ position: 'absolute', left: 0, top: 0, opacity: 0, cursor: 'pointer', height: '100%', width: '100%' }} />
                                     <div style={{ ...inputStyle, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', backgroundColor: 'var(--bg-secondary)', color: 'var(--text-primary)', cursor: 'pointer', border: mediaFiles.length > 0 ? '2px solid var(--primary-color)' : '2px dashed var(--border-color)', transition: 'var(--transition)' }}>
                                         <span style={{ fontSize: '1.2rem' }}>{mediaFiles.length > 0 ? '✅' : '📁'}</span>
-                                        <span style={{ fontWeight: '500' }}>{mediaFiles.length > 0 ? `${mediaFiles.length} bestand(en) geselecteerd` : 'Klik hier om foto\'s en video\'s te selecteren...'}</span>
+                                        <span style={{ fontWeight: '500' }}>{mediaFiles.length > 0 ? (isNL ? `${mediaFiles.length} bestand(en) geselecteerd` : `${mediaFiles.length} file(s) selected`) : (isNL ? "Klik hier om foto's en video's te selecteren..." : 'Click here to select photos and videos...')}</span>
                                     </div>
                                 </div>
                             </div>
@@ -450,7 +466,7 @@ export default function Toevoegen() {
 
                         {/* Ingredients */}
                         <div style={{ marginBottom: '30px' }}>
-                            <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>Benodigdheden</h2>
+                            <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>{t('ingredients')}</h2>
                             {ingredients.map((ing, idx) => (
                                 <div key={idx}
                                     draggable
@@ -469,22 +485,22 @@ export default function Toevoegen() {
                                     }}
                                     style={{ display: 'flex', gap: '6px', alignItems: 'center', marginBottom: '8px', cursor: 'grab' }}
                                 >
-                                    <div style={{ color: 'var(--text-light)', padding: '0 8px', fontSize: '1.2rem', cursor: 'grab' }} title="Sleep om te verplaatsen">
+                                    <div style={{ color: 'var(--text-light)', padding: '0 8px', fontSize: '1.2rem', cursor: 'grab' }} title={isNL ? 'Sleep om te verplaatsen' : 'Drag to reorder'}>
                                         ⋮⋮
                                     </div>
                                     <input type="number" value={ing.amount ?? ''} onChange={e => updateIngredient(idx, 'amount', e.target.value)} placeholder="#" style={{ ...inputStyle, width: '70px', marginBottom: 0, textAlign: 'center' }} />
                                     <input type="text" value={ing.unit} onChange={e => updateIngredient(idx, 'unit', e.target.value)} placeholder="ml/g" style={{ ...inputStyle, width: '80px', marginBottom: 0 }} />
-                                    <input type="text" value={ing.name} onChange={e => updateIngredient(idx, 'name', e.target.value)} placeholder="Ingrediënt" style={{ ...inputStyle, flex: 1, marginBottom: 0 }} />
+                                    <input type="text" value={ing.name} onChange={e => updateIngredient(idx, 'name', e.target.value)} placeholder={t('ingredientName')} style={{ ...inputStyle, flex: 1, marginBottom: 0 }} />
                                     <button type="button" onClick={() => removeIngredient(idx)} style={{ background: 'none', border: 'none', color: '#D47B7B', cursor: 'pointer', fontSize: '1.2rem', padding: '4px 8px' }}>✕</button>
                                 </div>
                             ))}
-                            <button type="button" onClick={addIngredient} className="btn btn-secondary" style={{ marginTop: '8px', padding: '8px 16px', fontSize: '0.85rem' }}>+ Ingrediënt toevoegen</button>
+                            <button type="button" onClick={addIngredient} className="btn btn-secondary" style={{ marginTop: '8px', padding: '8px 16px', fontSize: '0.85rem' }}>{t('addIngredient')}</button>
                         </div>
 
                         {/* Steps */}
                         <div style={{ marginBottom: '30px' }}>
-                            <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>Bereidingswijze</h2>
-                            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>Tip: Gebruik woorden zoals "15 minuten" in je tekst en de digitale kookwekker pikt dit straks automatisch op!</p>
+                            <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>{isNL ? 'Bereidingswijze' : 'Preparation'}</h2>
+                            <p style={{ fontSize: '0.9rem', color: 'var(--text-secondary)', marginBottom: '15px' }}>{isNL ? 'Tip: Gebruik woorden zoals "15 minuten" in je tekst en de digitale kookwekker pikt dit straks automatisch op!' : 'Tip: Use words like "15 minutes" in your text and the digital cooking timer will automatically pick this up!'}</p>
                             {steps.map((step, idx) => (
                                 <div key={idx}
                                     draggable
@@ -503,20 +519,20 @@ export default function Toevoegen() {
                                     }}
                                     style={{ display: 'flex', gap: '6px', alignItems: 'flex-start', marginBottom: '8px', cursor: 'grab' }}
                                 >
-                                    <div style={{ color: 'var(--text-light)', padding: '10px 8px 0', fontSize: '1.2rem', cursor: 'grab' }} title="Sleep om te verplaatsen">
+                                    <div style={{ color: 'var(--text-light)', padding: '10px 8px 0', fontSize: '1.2rem', cursor: 'grab' }} title={isNL ? 'Sleep om te verplaatsen' : 'Drag to reorder'}>
                                         ⋮⋮
                                     </div>
                                     <span style={{ color: 'var(--text-light)', fontWeight: '600', minWidth: '25px', paddingTop: '10px' }}>{idx + 1}.</span>
-                                    <textarea value={step.description} onChange={e => updateStep(idx, e.target.value)} placeholder={`Stap ${idx + 1}...`} style={{ ...inputStyle, flex: 1, marginBottom: 0, minHeight: '60px', resize: 'vertical' }} />
+                                    <textarea value={step.description} onChange={e => updateStep(idx, e.target.value)} placeholder={`${t('step')} ${idx + 1}...`} style={{ ...inputStyle, flex: 1, marginBottom: 0, minHeight: '60px', resize: 'vertical' }} />
                                     <button type="button" onClick={() => removeStep(idx)} style={{ background: 'none', border: 'none', color: '#D47B7B', cursor: 'pointer', fontSize: '1.2rem', padding: '4px 8px', marginTop: '8px' }}>✕</button>
                                 </div>
                             ))}
-                            <button type="button" onClick={addStep} className="btn btn-secondary" style={{ marginTop: '8px', padding: '8px 16px', fontSize: '0.85rem' }}>+ Stap toevoegen</button>
+                            <button type="button" onClick={addStep} className="btn btn-secondary" style={{ marginTop: '8px', padding: '8px 16px', fontSize: '0.85rem' }}>{t('addStep')}</button>
                         </div>
 
                         <div style={{ marginTop: '40px', textAlign: 'right' }}>
                             <button type="submit" className="btn" disabled={loading} style={{ padding: '16px 30px', fontSize: '1.1rem' }}>
-                                {loading ? <span className="spinner" style={{ display: 'inline-block', margin: '0', borderTopColor: 'white' }}></span> : 'Recept Opslaan 💾'}
+                                {loading ? <span className="spinner" style={{ display: 'inline-block', margin: '0', borderTopColor: 'white' }}></span> : (isNL ? 'Recept Opslaan 💾' : 'Save Recipe 💾')}
                             </button>
                         </div>
                     </form>

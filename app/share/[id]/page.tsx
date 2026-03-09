@@ -4,6 +4,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { useI18n } from '@/lib/i18n';
+import { buildTimerRegex, parseTimeToMs } from '@/lib/timerParser';
 
 let globalAlarmAudio: HTMLAudioElement | null = null;
 
@@ -42,6 +44,7 @@ const stopAlarmSound = () => {
 };
 
 export default function ReceptDetail() {
+    const { t, isNL } = useI18n();
     const { id } = useParams();
     const router = useRouter();
 
@@ -128,7 +131,7 @@ export default function ReceptDetail() {
     useEffect(() => {
         fetch(`/api/recept/${id}`, { credentials: 'include' })
             .then(r => {
-                if (!r.ok) throw new Error("Oeps, niet gevonden");
+                if (!r.ok) throw new Error(isNL ? "Oeps, niet gevonden" : "Oops, not found");
                 return r.json();
             })
             .then(data => {
@@ -152,7 +155,7 @@ export default function ReceptDetail() {
 
     const toggleWakeLock = async () => {
         if (!('wakeLock' in navigator)) {
-            alert('Je browser ondersteunt Kookmodus (Wake Lock) niet.');
+            alert(isNL ? 'Je browser ondersteunt Kookmodus (Wake Lock) niet.' : 'Your browser does not support Cook Mode (Wake Lock).');
             return;
         }
 
@@ -173,7 +176,7 @@ export default function ReceptDetail() {
             }
         } catch (err) {
             console.error('Wake Lock ERROR', err);
-            alert('Kon kookmodus niet activeren.');
+            alert(isNL ? 'Kon kookmodus niet activeren.' : 'Could not activate cook mode.');
         }
     };
 
@@ -185,18 +188,18 @@ export default function ReceptDetail() {
     };
 
     const handleDelete = async () => {
-        if (!confirm("Weet je zeker dat je dit recept wil weggooien?")) return;
+        if (!confirm(isNL ? "Weet je zeker dat je dit recept wil weggooien?" : "Are you sure you want to delete this recipe?")) return;
         try {
             await fetch(`/api/recept/${id}`, { method: 'DELETE', credentials: 'include' });
             router.push('/');
         } catch (e) {
-            alert("Kan niet verwijderen");
+            alert(isNL ? "Kan niet verwijderen" : "Cannot delete");
         }
     };
 
     const sendEmail = async (e: React.FormEvent) => {
         e.preventDefault();
-        setEmailStatus('Verzenden...');
+        setEmailStatus(t('sending'));
         try {
             const res = await fetch('/api/email', {
                 method: 'POST',
@@ -205,14 +208,14 @@ export default function ReceptDetail() {
                 body: JSON.stringify({ recipeId: id, targetEmail: emailAddress })
             });
             if (res.ok) {
-                setEmailStatus('✅ Succesvol verstuurd!');
+                setEmailStatus(isNL ? '✅ Succesvol verstuurd!' : '✅ Successfully sent!');
                 setTimeout(() => setEmailOpen(false), 2000);
             } else {
                 const err = await res.json();
-                setEmailStatus('❌ Fout: ' + (err.error || 'Onbekend'));
+                setEmailStatus((isNL ? '❌ Fout: ' : '❌ Error: ') + (err.error || (isNL ? 'Onbekend' : 'Unknown')));
             }
         } catch (e) {
-            setEmailStatus('❌ Netwerkfout');
+            setEmailStatus(isNL ? '❌ Netwerkfout' : '❌ Network error');
         }
     };
 
@@ -266,7 +269,7 @@ export default function ReceptDetail() {
     // Format remaining time
     const formatTimeRemaining = (endTime: number) => {
         const remainingStr = endTime - Date.now();
-        if (remainingStr <= 0) return 'Klaar!';
+        if (remainingStr <= 0) return isNL ? 'Klaar!' : 'Done!';
 
         const totalSeconds = Math.floor(remainingStr / 1000);
         const hours = Math.floor(totalSeconds / 3600);
@@ -278,20 +281,20 @@ export default function ReceptDetail() {
     };
 
     if (loading) return <div className="spinner" style={{ margin: '50px auto', borderTopColor: 'var(--primary-color)' }}></div>;
-    if (errorMsg) return <div className="card" style={{ textAlign: 'center' }}><h2>{errorMsg}</h2><Link href="/" className="btn">Terug naar menu</Link></div>;
+    if (errorMsg) return <div className="card" style={{ textAlign: 'center' }}><h2>{errorMsg}</h2><Link href="/" className="btn">{isNL ? 'Terug naar menu' : 'Back to menu'}</Link></div>;
 
     return (
         <div className="container-narrow" style={{ paddingBottom: '50px', margin: '0 auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
                 <Link href="/" style={{ fontWeight: '500' }}>
-                    ← Terug naar overzicht
+                    ← {isNL ? 'Terug naar overzicht' : 'Back to overview'}
                 </Link>
                 <button
                     onClick={toggleWakeLock}
                     className={`btn ${wakeLockEnabled ? '' : 'btn-secondary'}`}
                     style={{ padding: '8px 16px', fontSize: '0.9rem' }}
                 >
-                    {wakeLockEnabled ? '🔥 Scherm blijft aan' : '📱 Kookmodus'}
+                    {wakeLockEnabled ? (isNL ? '🔥 Scherm blijft aan' : '🔥 Screen stays on') : (isNL ? '📱 Kookmodus' : '📱 Cook mode')}
                 </button>
             </div>
 
@@ -335,7 +338,7 @@ export default function ReceptDetail() {
                 )}
                 {recipe.originalUrl && (
                     <p style={{ color: 'var(--text-light)', marginBottom: '20px' }}>
-                        <a href={recipe.originalUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>Originele Bron</a>
+                        <a href={recipe.originalUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>{isNL ? 'Originele Bron' : 'Original Source'}</a>
                     </p>
                 )}
 
@@ -424,14 +427,14 @@ export default function ReceptDetail() {
 
                 {/* Portie Regelaar */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '15px', padding: '15px', backgroundColor: 'var(--bg-secondary)', borderRadius: 'var(--border-radius-sm)', marginBottom: '30px' }}>
-                    <strong>Voor hoeveel personen?</strong>
+                    <strong>{isNL ? 'Voor hoeveel personen?' : 'How many servings?'}</strong>
                     <button className="btn btn-secondary" onClick={() => setTargetPortions(Math.max(1, targetPortions - 1))} style={{ padding: '8px 12px' }}>-</button>
                     <span style={{ fontSize: '1.2rem', fontWeight: '600', minWidth: '30px', textAlign: 'center' }}>{targetPortions}</span>
                     <button className="btn btn-secondary" onClick={() => setTargetPortions(targetPortions + 1)} style={{ padding: '8px 12px' }}>+</button>
                 </div>
 
                 {/* Ingrediënten */}
-                <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>Benodigdheden</h2>
+                <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>{t('ingredients')}</h2>
                 <ul style={{ listStyle: 'none', marginBottom: '40px' }}>
                     {recipe.ingredients?.map((ing: any, idx: number) => {
                         const checked = !!checkedItems[idx];
@@ -463,16 +466,14 @@ export default function ReceptDetail() {
                 </ul>
 
                 {/* Stappen */}
-                <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>Bereidingswijze</h2>
+                <h2 style={{ borderBottom: '2px solid var(--border-color)', paddingBottom: '10px', marginBottom: '15px' }}>{isNL ? 'Bereidingswijze' : 'Preparation'}</h2>
                 <ol style={{ paddingLeft: '20px', fontSize: '1.1rem', marginBottom: '40px', color: 'var(--text-secondary)' }}>
                     {recipe.steps?.map((step: any, idx: number) => {
                         const checked = !!checkedSteps[idx];
 
-                        // Smart Timer Detection (e.g. "15 minuten" -> renders a button)
+                        // Smart Timer Detection (e.g. "15 minuten", "1 uur en 10 minuten", "fifteen minutes" -> renders a button)
                         const renderStepText = (text: string) => {
-                            // Match numbers with possible decimals, followed by a time unit.
-                            // The global flag (/g) allows matching multiple times per step.
-                            const splitRegex = /((?:\d+(?:[.,]\d+)?)\s*(?:minuten|minutes|minuut|mins|min\b|seconden|secondes|second|sec\b|uren|hours|uur|hrs\b|dagen|days|dag\b))/gi;
+                            const splitRegex = buildTimerRegex();
 
                             if (!text.match(splitRegex)) return text;
 
@@ -480,20 +481,13 @@ export default function ReceptDetail() {
                             return (
                                 <>
                                     {parts.map((part, i) => {
-                                        // Even indices are normal text, odd indices are the matched time strings
-                                        if (i % 2 === 0) return <span key={i}>{part}</span>;
+                                        // Check if this part is actually a timer match
+                                        const timerRegex = buildTimerRegex();
+                                        if (!part.match(timerRegex)) return <span key={i}>{part}</span>;
 
                                         const fullMatchText = part;
-                                        const lowerPart = part.toLowerCase();
-                                        const numMatch = part.match(/(\d+(?:[.,]\d+)?)/);
-                                        if (!numMatch) return <span key={i}>{part}</span>;
-
-                                        const val = parseFloat(numMatch[1].replace(',', '.'));
-                                        let ms = 0;
-                                        if (lowerPart.includes('sec')) ms = val * 1000;
-                                        else if (lowerPart.includes('min')) ms = val * 60 * 1000;
-                                        else if (lowerPart.includes('uur') || lowerPart.includes('hour') || lowerPart.includes('hrs')) ms = val * 60 * 60 * 1000;
-                                        else ms = val * 60 * 1000; // fallback to minutes
+                                        const ms = parseTimeToMs(part);
+                                        if (ms <= 0) return <span key={i}>{part}</span>;
 
                                         const timerId = `${idx}-${i}-${fullMatchText}`;
 
@@ -562,7 +556,7 @@ export default function ReceptDetail() {
                 {/* Publieke Voetnoot */}
                 <div style={{ marginTop: '30px', borderTop: '1px solid var(--border-color)', paddingTop: '20px', textAlign: 'center' }}>
                     <p style={{ color: 'var(--text-light)', fontSize: '0.9rem' }}>
-                        Gedeeld via <strong>{process.env.NEXT_PUBLIC_APP_NAME || 'ReteraRecepten'}</strong>
+                        {isNL ? 'Gedeeld via' : 'Shared via'} <strong>{process.env.NEXT_PUBLIC_APP_NAME || 'ReteraRecepten'}</strong>
                     </p>
                 </div>
             </div>

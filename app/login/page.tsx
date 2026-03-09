@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useI18n } from '@/lib/i18n';
 
 export default function Login() {
+    const { t } = useI18n();
     const [password, setPassword] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -22,19 +24,15 @@ export default function Login() {
             });
 
             if (res.ok) {
-                // Determine where to redirect
                 const params = new URLSearchParams(window.location.search);
                 const from = params.get('from') || '/';
-
-                // Force a hard refresh on successful login to ensure middleware cookies are properly loaded
-                // This fixes an issue in iOS Chrome/Safari where the cache would prevent immediate access
                 window.location.href = from;
             } else {
                 const data = await res.json();
-                setError(data.error || 'Login mislukt.');
+                setError(data.error || t('loginFailed'));
             }
         } catch (err) {
-            setError('Fout bij het verbinden met de server.');
+            setError(t('connectionError'));
         } finally {
             setLoading(false);
         }
@@ -48,9 +46,9 @@ export default function Login() {
             minHeight: '80vh'
         }}>
             <div className="card" style={{ maxWidth: '400px', width: '100%', padding: '40px 30px' }}>
-                <h1 style={{ textAlign: 'center', marginBottom: '10px' }}>Welkom terug!</h1>
+                <h1 style={{ textAlign: 'center', marginBottom: '10px' }}>{t('welcomeBack')}</h1>
                 <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '30px' }}>
-                    Voer het wachtwoord in om toegang te krijgen tot de recepten database.
+                    {t('loginDesc')}
                 </p>
 
                 {error && (
@@ -63,7 +61,7 @@ export default function Login() {
                     <div style={{ marginBottom: '20px' }}>
                         <input
                             type="password"
-                            placeholder="Wachtwoord"
+                            placeholder={t('passwordPlaceholder')}
                             value={password}
                             onChange={(e) => setPassword(e.target.value)}
                             disabled={loading}
@@ -87,7 +85,7 @@ export default function Login() {
                         disabled={loading}
                         style={{ width: '100%', padding: '16px', fontSize: '1.1rem', marginTop: '10px' }}
                     >
-                        {loading ? 'Bezig...' : 'Inloggen'}
+                        {loading ? t('loggingIn') : t('login')}
                     </button>
                 </form>
             </div>

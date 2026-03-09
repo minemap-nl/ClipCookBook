@@ -3,10 +3,10 @@
 <br />
 <div align="center">
   <a href="https://socialrecipesaver.famretera.nl">
-    <img src="./public/icon-512x512.png" alt="Social Recipe Saver Logo" width="120" />
+    <img src="./public/icon-512x512.png" alt="ClipCookBook Logo" width="120" />
   </a>
 
-  <h3 align="center">Social Recipe Saver</h3>
+  <h3 align="center">ClipCookBook</h3>
 
   <p align="center">
     A self-hosted web application to extract, save, and organize recipes from social media using AI.<br />
@@ -47,7 +47,7 @@
 
 ## About The Project
 
-**Social Recipe Saver** is your personal, self-hosted database for all those delicious recipes you find while scrolling through social media. Instead of saving a post and never looking at it again, Social Recipe Saver uses AI (like Google Gemini) to extract ingredients, portions, and step-by-step instructions directly from the post URL.
+**ClipCookBook** is your personal, self-hosted database for all those delicious recipes you find while scrolling through social media. Instead of saving a post and never looking at it again, ClipCookBook uses AI (like Google Gemini) to extract ingredients, portions, and step-by-step instructions directly from the post URL.
 
 It's designed to be fast, private, and fully under your control.
 
@@ -79,7 +79,7 @@ It's designed to be fast, private, and fully under your control.
 
 ## Getting Started
 
-The recommended way to install **Social Recipe Saver** is via **Docker**.
+The recommended way to install **ClipCookBook** is via **Docker**.
 
 ### Prerequisites
 
@@ -110,17 +110,18 @@ services:
       - ./backups:/app/backups
     environment:
       - DATABASE_URL=file:/app/data/dev.db
-      - SMTP_HOST=your-smtp-host
-      - SMTP_PORT=587
-      - SMTP_USER=your-email
-      - SMTP_PASS=your-password
+      - NEXT_PUBLIC_LANGUAGE=en # UI Language ('en' or 'nl')
       - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
       - GEMINI_API_KEY=your-gemini-api-key
-      - APP_NAME=Social Recipe Saver
+      - APP_NAME=ClipCookBook
       - APP_URL=https://recepten.yourdomain.com
       - SITE_PASSWORD=your-secret-password
       - JWT_SECRET=your-random-jwt-secret
       - AUTO_BACKUP=true
+      - SMTP_HOST=your-smtp-host
+      - SMTP_PORT=587
+      - SMTP_USER=your-email
+      - SMTP_PASS=your-password
 ```
 
 4. Start the stack:
@@ -135,7 +136,7 @@ docker compose up -d
 
 ## AI Integration
 
-Social Recipe Saver currently leverages **Google Gemini AI** to transform unstructured social media data into structured recipes.
+ClipCookBook currently leverages **Google Gemini AI** to transform unstructured social media data into structured recipes.
 
 * **Free Tier Supported**: You can use a free tier API key from [Google AI Studio](https://aistudio.google.com/).
 * **Optimal Results**: AI is required for optimal automatic extraction of ingredients and steps. Without it (`PROCESS_METHOD=manual`), you can still save links and media but an algoritm will try to do it's best using the description of a social media video. You also can't use the photo recipe extraction feature. You can always enter recipe details manually.

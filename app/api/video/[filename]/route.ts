@@ -55,7 +55,11 @@ export async function GET(req: Request, props: { params: Promise<{ filename: str
                 'Content-Range': `bytes ${start}-${end}/${fileSize}`,
                 'Accept-Ranges': 'bytes',
                 'Content-Length': String(chunkSize),
+                'Content-Disposition': 'inline',
                 'Content-Type': 'video/mp4',
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache',
+                'Expires': '0',
             },
         });
     }
@@ -89,6 +93,10 @@ export async function GET(req: Request, props: { params: Promise<{ filename: str
             'Content-Length': String(fileSize),
             'Content-Type': 'video/mp4',
             'Accept-Ranges': 'bytes',
+            'Content-Disposition': 'inline',
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache',
+            'Expires': '0',
         },
     });
 }

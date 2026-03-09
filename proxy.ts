@@ -96,6 +96,7 @@ export async function proxy(request: NextRequest) {
     // Local IPv6: ::1, fe80::/10, fc00::/7, fd00::/8
     const isLocalIp = clientIp === '::1' ||
         clientIp === '127.0.0.1' ||
+        clientIp.startsWith('localhost') ||
         clientIp.startsWith('192.168.') ||
         clientIp.startsWith('10.') ||
         /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(clientIp) ||
