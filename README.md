@@ -92,7 +92,8 @@ When you find a recipe on apps like Instagram or TikTok, simply share the post t
 4. Enter the URL where your ClipCookBook instance is hosted (for example: `https://recipes.yourdomain.com` or your ip:port, like `http://192.168.1.10:9416`).
 5. Tap **Add Shortcut** (*Voeg opdracht toe*).
 
-*💡 **Pro Tip**: Once installed, you can edit your iOS Share Sheet actions to pin this shortcut to the top for even faster access!*
+
+💡 **Pro Tip**: Once installed, you can edit your iOS Share Sheet actions to pin this shortcut to the top for even faster access!
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
