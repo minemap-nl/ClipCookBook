@@ -3,7 +3,7 @@
 <br />
 <div align="center">
   <a href="https://clipcookbook.famretera.nl">
-    <img src="./public/icon-512x512.png" alt="ClipCookBook Logo" width="120" />
+    <img src="./app/icon.svg" alt="ClipCookBook Logo" width="200" />
   </a>
 
   <h3 align="center">ClipCookBook</h3>
@@ -30,6 +30,7 @@
     </ul>
   </li>
   <li><a href="#key-features">Key Features</a></li>
+  <li><a href="#ios-apple-shortcut">iOS Apple Shortcut</a></li>
   <li>
     <a href="#getting-started">Getting Started</a>
     <ul>
@@ -77,6 +78,27 @@ It's designed to be fast, private, and fully under your control.
 
 ---
 
+## iOS Apple Shortcut
+
+Save recipes effortlessly directly from your iPhone or iPad! We have created an Apple Shortcut that integrates ClipCookBook seamlessly into your iOS Share Sheet. 
+
+When you find a recipe on apps like Instagram or TikTok, simply share the post to this shortcut. It will automatically open your self-hosted ClipCookBook page and pre-fill the link. All you have to do is click **"Generate Recipe"**.
+
+### Installation Steps
+
+1. **Download** the shortcut file here: [Save recipe.shortcut](https://raw.githubusercontent.com/minemap-nl/ClipCookBook/main/Save%20recipe.shortcut)
+2. Open the downloaded file in your iOS **Files** app.
+3. Tap **Set Up Shortcut** (*Configureer opdracht*).
+4. Enter the URL where your ClipCookBook instance is hosted (for example: `https://recipes.yourdomain.com` or your ip:port, like `http://192.168.1.10:9416`).
+5. Tap **Add Shortcut** (*Voeg opdracht toe*).
+
+
+💡 **Pro Tip**: Once installed, you can edit your iOS Share Sheet actions to pin this shortcut to the top for even faster access!
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+---
+
 ## Getting Started
 
 The recommended way to install **ClipCookBook** is via **Docker**.
@@ -95,7 +117,7 @@ The recommended way to install **ClipCookBook** is via **Docker**.
 ```yaml
 services:
   clipcookbook:
-    image: ghcr.io/minemap-nl/ClipCookBook:latest
+    image: ghcr.io/minemap-nl/clipcookbook:latest
     container_name: ClipCookBook
     restart: always
     stop_grace_period: 5s
