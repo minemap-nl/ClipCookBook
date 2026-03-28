@@ -347,7 +347,7 @@ export default function ReceptDetail() {
                         <div style={{ borderRadius: 'var(--border-radius)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', position: 'relative', cursor: 'pointer' }} >
                             {allMedia.map((src, idx) => {
                                 const isActive = idx === currentCarouselIndex;
-                                const isVid = src.includes('/api/video/') || src.match(/\.(mp4|mov|webm)$/i);
+                                const isVid = src.includes('/api/v/') || src.match(/\.(mp4|mov|webm)$/i);
                                 return (
                                     <div key={idx} style={{ display: isActive ? 'block' : 'none', position: 'relative' }}>
                                         {isVid ? (

@@ -1,6 +1,9 @@
 Dockerfile
 .dockerignore
 node_modules
+# Project uses bun.lock; stale npm lock confuses scanners (e.g. next@16.1.6 in old lock)
+package-lock.json
+npm-shrinkwrap.json
 npm-debug.log
 yarn-error.log
 .git

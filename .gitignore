@@ -45,6 +45,10 @@ next-env.d.ts
 *.db
 *.db-journal
 
+# runtime alert state (one e-mail per outage)
+data/media-missing-alert.json
+data/backup-failure-alert.json
+
 # data folders
 public/thumbnails/*
 !public/thumbnails/.gitkeep

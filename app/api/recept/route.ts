@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
+import { canonicalSourceUrl } from '@/lib/normalize-source-url';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 
@@ -20,10 +21,25 @@ export async function GET() {
     });
 
     // Transform old static paths to API routes for standalone mode
+    // Strip .mp4 to bypass IDM extension discovery
+    const transformVid = (p: string | null) => {
+        if (!p) return null;
+        return p.replace(/^\/videos\//, '/api/v/')
+                .replace(/^\/api\/video\//, '/api/v/')
+                .replace(/\.mp4$/i, '');
+    };
+
     const transformed = recipes.map(r => ({
         ...r,
         thumbnailPath: r.thumbnailPath?.replace(/^\/thumbnails\//, '/api/thumbnail/') ?? null,
-        videoPath: r.videoPath?.replace(/^\/videos\//, '/api/video/') ?? null,
+        videoPath: transformVid(r.videoPath),
+        media: r.media?.split(',').map(item => {
+            const trimmed = item.trim();
+            if (trimmed.includes('/api/v/') || trimmed.includes('/api/video/') || trimmed.includes('/videos/') || trimmed.match(/\.(mp4|mov|webm)$/i)) {
+                return transformVid(trimmed);
+            }
+            return trimmed;
+        }).join(',') ?? null,
     }));
 
     return NextResponse.json(transformed);
@@ -59,6 +75,23 @@ export async function POST(req: Request) {
             const stepsStr = formData.get('steps') as string;
             if (stepsStr) stepsData = JSON.parse(stepsStr);
 
+            const thumbnailData = formData.get('thumbnail') as string;
+            if (thumbnailData && thumbnailData.startsWith('data:image')) {
+                const matches = thumbnailData.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+                if (matches && matches.length === 3) {
+                    const crypto = require('crypto');
+                    const fs = require('fs/promises');
+                    const path = require('path');
+                    const thumbsDir = path.join(process.cwd(), 'public', 'thumbnails');
+                    await fs.mkdir(thumbsDir, { recursive: true });
+
+                    const buffer = Buffer.from(matches[2], 'base64');
+                    const filename = `crop-${crypto.randomUUID()}.jpg`;
+                    await fs.writeFile(path.join(thumbsDir, filename), buffer);
+                    thumbnailPath = `/api/thumbnail/${filename}`;
+                }
+            }
+
             const mediaFiles = formData.getAll('mediaFiles') as File[];
 
             // Save media if present
@@ -84,7 +117,7 @@ export async function POST(req: Request) {
                     const filename = crypto.randomUUID() + ext;
 
                     const targetDir = isVid ? videosDir : thumbsDir;
-                    const apiPrefix = isVid ? '/api/video/' : '/api/thumbnail/';
+                    const apiPrefix = isVid ? '/api/v/' : '/api/thumbnail/';
 
                     const buffer = Buffer.from(await file.arrayBuffer());
                     await fs.writeFile(path.join(targetDir, filename), buffer);
@@ -93,8 +126,10 @@ export async function POST(req: Request) {
                 }
 
                 if (savedMediaPaths.length > 0) {
-                    videoPath = savedMediaPaths.find(p => p.includes('/api/video/')) || null;
-                    thumbnailPath = savedMediaPaths.find(p => p.includes('/api/thumbnail/')) || null;
+                    const v = savedMediaPaths.find(p => p.includes('/api/v/')) || null;
+                    if (v) videoPath = v;
+                    const thumbFromMedia = savedMediaPaths.find(p => p.includes('/api/thumbnail/')) || null;
+                    if (thumbFromMedia) thumbnailPath = thumbFromMedia;
                     mediaGallery = savedMediaPaths.join(',');
                 }
             }
@@ -117,7 +152,11 @@ export async function POST(req: Request) {
                 description: description ? sanitize(description) : null,
                 tags: sanitize(tags),
                 portions: portions,
-                originalUrl: originalUrl ? sanitize(originalUrl) : null,
+                originalUrl: originalUrl
+                    ? /^\s*https?:\/\//i.test(originalUrl)
+                        ? canonicalSourceUrl(originalUrl) || sanitize(originalUrl)
+                        : sanitize(originalUrl)
+                    : null,
                 videoPath: videoPath,
                 thumbnailPath: thumbnailPath,
                 originalThumbnail: thumbnailPath,

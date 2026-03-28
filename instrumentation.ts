@@ -13,6 +13,9 @@ export async function register() {
             console.log('[Cron] Auto backups are ENABLED. Running every 24 hours.');
 
             const doBackup = async () => {
+                const { clearBackupFailureAlertFlag, maybeSendBackupFailureAlert } = await import(
+                    './lib/backup-failure-alert'
+                );
                 try {
                     const dbUrl = process.env.DATABASE_URL || 'file:./dev.db';
                     const strippedPath = dbUrl.replace(/^file:/, '');
@@ -26,6 +29,7 @@ export async function register() {
                     await fs.copyFile(dbPath, backupPath);
 
                     console.log(`[Cron] Auto backup completed successfully: ${backupPath}`);
+                    await clearBackupFailureAlertFlag();
 
                     // Keep only last 7 backups to prevent unlimited disk usage
                     const files = await fs.readdir(backupDir);
@@ -37,7 +41,9 @@ export async function register() {
                         }
                     }
                 } catch (e) {
-                    console.error(`[Cron] Auto backup failed:`, e);
+                    const detail = e instanceof Error ? `${e.message}\n${e.stack || ''}` : String(e);
+                    console.error('[ERROR] [Cron] Auto backup failed:', e);
+                    await maybeSendBackupFailureAlert(detail);
                 }
             };
 
@@ -47,6 +53,23 @@ export async function register() {
         } else {
             console.log('[Cron] Auto backups are disabled. Set AUTO_BACKUP=true to enable.');
         }
+
+        const runMediaRecovery = async () => {
+            if (process.env.MEDIA_RECOVERY === 'false') {
+                console.log('[Cron] Media recovery is disabled (MEDIA_RECOVERY=false).');
+                return;
+            }
+            try {
+                const { runMissingMediaRecovery, maybeSendMissingMediaAlert } = await import('./lib/media-recovery');
+                const r = await runMissingMediaRecovery();
+                console.log(
+                    `[Cron] Media recovery: restored ${r.recovered}, still missing ${r.stillMissing.length}`
+                );
+                await maybeSendMissingMediaAlert(r);
+            } catch (e) {
+                console.error('[Cron] Media recovery failed:', e);
+            }
+        };
 
         // --- ORPHANED MEDIA CLEANUP CRON ---
         const cleanOrphanedMedia = async () => {
@@ -88,10 +111,20 @@ export async function register() {
                     }
                 }
 
-                // Now we have a list of all legitimately used media filenames, scan directories for orphaned files
-                const dirsToClean = [
-                    path.join(process.cwd(), 'public', 'videos'),
-                    path.join(process.cwd(), 'public', 'thumbnails')
+                // DB stores video URLs as /api/v/<uuid> (no extension); files on disk are <uuid>.mp4.
+                // path.basename of the URL is only the uuid, so we must also treat <uuid>.mp4 as in-use.
+                const isStillReferenced = (file: string, matchStem: boolean) => {
+                    if (activeFiles.has(file)) return true;
+                    if (matchStem) {
+                        const stem = path.parse(file).name;
+                        if (stem && activeFiles.has(stem)) return true;
+                    }
+                    return false;
+                };
+
+                const dirsToClean: { dir: string; matchStem: boolean }[] = [
+                    { dir: path.join(process.cwd(), 'public', 'videos'), matchStem: true },
+                    { dir: path.join(process.cwd(), 'public', 'thumbnails'), matchStem: false }
                 ];
 
                 let deletedCount = 0;
@@ -99,13 +132,13 @@ export async function register() {
                 // 24 hours grace period to ensure we don't delete files currently mid-upload / draft
                 const MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-                for (const dir of dirsToClean) {
+                for (const { dir, matchStem } of dirsToClean) {
                     try {
                         const files = await fs.readdir(dir);
                         for (const file of files) {
                             if (file === '.placeholder' || file === '.gitkeep') continue;
 
-                            if (!activeFiles.has(file)) {
+                            if (!isStillReferenced(file, matchStem)) {
                                 const filePath = path.join(dir, file);
                                 const stats = await fs.stat(filePath);
 
@@ -129,8 +162,21 @@ export async function register() {
             }
         };
 
-        // Every 24 hours
-        setInterval(cleanOrphanedMedia, 24 * 60 * 60 * 1000);
-        setTimeout(cleanOrphanedMedia, 15000); // initial run after 15s
+        const mediaMaintenance = async () => {
+            await runMediaRecovery();
+            await cleanOrphanedMedia();
+        };
+
+        const maintenanceInitialMs = Math.max(
+            10_000,
+            parseInt(process.env.MEDIA_MAINTENANCE_INITIAL_DELAY_MS || '120000', 10) || 120_000
+        );
+
+        // Every 24 hours: yt-dlp media recovery, then orphan cleanup
+        setInterval(mediaMaintenance, 24 * 60 * 60 * 1000);
+        setTimeout(mediaMaintenance, maintenanceInitialMs);
+        console.log(
+            `[Cron] Media maintenance (recovery + orphan cleanup) first run in ${Math.round(maintenanceInitialMs / 1000)}s, then every 24h.`
+        );
     }
 }
