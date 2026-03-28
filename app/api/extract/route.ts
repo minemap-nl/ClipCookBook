@@ -4,6 +4,8 @@ import path from 'path';
 import fs from 'fs';
 import { prisma } from '@/lib/prisma';
 import { extractRecipeData, extractRecipeDataAI, extractRecipeDataFromVideo } from '@/lib/extractor';
+import { canonicalSourceUrl, normalizeSourceUrl } from '@/lib/normalize-source-url';
+import { findExistingRecipeBySourceUrl } from '@/lib/find-recipe-by-source-url';
 import { extractFrames } from '@/lib/ffmpeg';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
@@ -77,7 +79,7 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
             finalTags = extracted.tags || [];
         } else {
             await prisma.importJob.update({ where: { id: jobId }, data: { message: "Video-informatie ophalen..." } });
-            info = await ytDlp(url, { dumpSingleJson: true, noWarnings: true });
+            info = await ytDlp(url, { dumpSingleJson: true, noWarnings: true, noPlaylist: true });
             const description = info.description || info.title || "";
             const cleanDesc = sanitize(description);
 
@@ -87,8 +89,9 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
                 output: outputPath,
                 format: 'bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc1]+bestaudio/best[ext=mp4]/best',
                 mergeOutputFormat: 'mp4',
+                noPlaylist: true,
             }).then(async () => {
-                finalVideoPath = `/api/video/${videoName}`;
+                finalVideoPath = `/api/v/${path.parse(videoName).name}`;
                 // Extract 3 suggested frames
                 try {
                     const extractedThumbs = await extractFrames(outputPath, 'public/thumbnails', `suggest-${id}`);
@@ -199,7 +202,7 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
                 description: finalDescription ? sanitize(finalDescription) : null,
                 tags: pureTags.length > 0 ? pureTags.join(',') : null,
                 suggestedThumbnails: suggestedThumbs.length > 0 ? suggestedThumbs.join(',') : null,
-                originalUrl: sanitize(url),
+                originalUrl: canonicalSourceUrl(url) || sanitize(url),
                 videoPath: finalVideoPath,
                 thumbnailPath: finalThumbnail,
                 originalThumbnail: finalThumbnail,
@@ -239,24 +242,10 @@ export async function POST(req: Request) {
         const { url, deepSearch } = await req.json();
         if (!url) return NextResponse.json({ error: "Geen URL meegegeven" }, { status: 400 });
 
-        // Strip query parameters to prevent duplicates like ?igsh=...
-        let cleanUrl = url;
-        try {
-            const parsedUrl = new URL(url);
-            // Reconstruct without query params
-            cleanUrl = `${parsedUrl.origin}${parsedUrl.pathname}`;
-        } catch (e) {
-            // If it's not a valid URL structure, leave it as is
-        }
+        // Drop tracking params (igsh, utm_*, …) but keep content ids: YouTube ?v=, ?list=, ?t=, etc.
+        const cleanUrl = normalizeSourceUrl(url);
 
-        // Check if we already have this recipe in the database (or if an older one starts with this base URL)
-        const existingRecipe = await prisma.recipe.findFirst({
-            where: {
-                originalUrl: {
-                    startsWith: cleanUrl
-                }
-            }
-        });
+        const existingRecipe = await findExistingRecipeBySourceUrl(url);
 
         if (existingRecipe) {
             // Already exists, return the existing recipe ID immediately

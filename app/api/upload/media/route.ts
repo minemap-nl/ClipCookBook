@@ -34,7 +34,7 @@ export async function POST(req: Request) {
             const buffer = Buffer.from(await file.arrayBuffer());
             fs.writeFileSync(filePath, buffer);
 
-            const apiUrl = isVideo ? `/api/video/${fileName}` : `/api/thumbnail/${fileName}`;
+            const apiUrl = isVideo ? `/api/v/${path.parse(fileName).name}` : `/api/thumbnail/${fileName}`;
             savedUrls.push(apiUrl);
         }
 

@@ -6,6 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
 import { buildTimerRegex, parseTimeToMs } from '@/lib/timerParser';
+import CoverPhotoSelector from '@/components/CoverPhotoSelector';
 
 let globalAlarmAudio: HTMLAudioElement | null = null;
 
@@ -66,37 +67,51 @@ const FilmstripScrubber = ({ videoRef, onCapture, onCancel }: { videoRef: React.
             video.muted = true;
             video.playsInline = true;
 
-            await new Promise((resolve) => {
-                video.addEventListener('loadeddata', resolve, { once: true });
-            });
+            const timeoutPromise = (ms: number) => new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), ms));
 
-            const duration = video.duration;
-            if (!duration || !isFinite(duration)) {
-                if (isMounted) setLoading(false);
-                return;
-            }
+            try {
+                await Promise.race([
+                    new Promise((resolve) => {
+                        if (video.readyState >= 2) resolve(null);
+                        else video.addEventListener('loadeddata', resolve, { once: true });
+                    }),
+                    timeoutPromise(10000)
+                ]);
 
-            const frameCount = 15;
-            const newFrames: string[] = [];
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-
-            canvas.width = 80;
-            canvas.height = (video.videoHeight / video.videoWidth) * 80;
-
-            for (let i = 0; i < frameCount; i++) {
-                video.currentTime = (duration / frameCount) * i;
-                await new Promise((resolve) => {
-                    video.addEventListener('seeked', resolve, { once: true });
-                });
-                if (ctx) {
-                    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-                    newFrames.push(canvas.toDataURL('image/jpeg', 0.5));
+                const duration = video.duration;
+                if (!duration || !isFinite(duration)) {
+                    if (isMounted) setLoading(false);
+                    return;
                 }
-            }
-            if (isMounted) {
-                setFrames(newFrames);
-                setLoading(false);
+
+                const frameCount = 15;
+                const newFrames: string[] = [];
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+
+                canvas.width = 80;
+                canvas.height = (video.videoHeight / video.videoWidth) * 80;
+
+                for (let i = 0; i < frameCount; i++) {
+                    video.currentTime = (duration / frameCount) * i;
+                    await Promise.race([
+                        new Promise((resolve) => {
+                            video.addEventListener('seeked', resolve, { once: true });
+                        }),
+                        timeoutPromise(5000)
+                    ]);
+                    if (ctx) {
+                        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                        newFrames.push(canvas.toDataURL('image/jpeg', 0.5));
+                    }
+                }
+                if (isMounted) {
+                    setFrames(newFrames);
+                    setLoading(false);
+                }
+            } catch (err) {
+                console.error("Frame generation failed", err);
+                if (isMounted) setLoading(false);
             }
         };
 
@@ -223,9 +238,11 @@ export default function ReceptDetail() {
 
     // Thumbnail Editor State
     const [editThumbnail, setEditThumbnail] = useState<string | null>(null);
+    const [sourceImage, setSourceImage] = useState<string | null>(null);
     const [uploadingThumbnail, setUploadingThumbnail] = useState(false);
     const [scrubbing, setScrubbing] = useState(false);
     const [choosingVideo, setChoosingVideo] = useState(false);
+    const [editSuggestedThumbnails, setEditSuggestedThumbnails] = useState<string[]>([]);
     const [scrubbingVideoUrl, setScrubbingVideoUrl] = useState<string | null>(null);
     const videoRef = React.useRef<HTMLVideoElement>(null);
 
@@ -371,6 +388,8 @@ export default function ReceptDetail() {
         setEditSteps(recipe.steps?.map((s: any) => ({ description: s.description })) || []);
         setEditMedia([...allMedia]); // Copy the current unified media correctly into the editor state
         setEditThumbnail(recipe.thumbnailPath || recipe.originalThumbnail || null); // Initialize standalone thumbnail
+        setSourceImage(recipe.originalThumbnail || recipe.thumbnailPath || null);
+        setEditSuggestedThumbnails(recipe.suggestedThumbnails ? recipe.suggestedThumbnails.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
         setEditing(true);
     };
 
@@ -383,9 +402,16 @@ export default function ReceptDetail() {
             if (ctx) {
                 ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
                 const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-                // Assign the captured frame directly to the thumbnail path
+                
+                // Set as current thumbnail
+                setSourceImage(dataUrl);
                 setEditThumbnail(dataUrl);
+                
+                // Add to suggestions list as requested, but at the end
+                setEditSuggestedThumbnails(prev => [...prev.filter(u => u !== dataUrl), dataUrl]);
+                
                 setScrubbing(false);
+                setScrubbingVideoUrl(null);
             }
         }
     };
@@ -413,6 +439,7 @@ export default function ReceptDetail() {
                     steps: editSteps,
                     editMedia: editMedia,
                     thumbnailPath: editThumbnail,
+                    suggestedThumbnails: editSuggestedThumbnails,
                 })
             });
             if (!res.ok) throw new Error(isNL ? "Opslaan mislukt" : "Save failed");
@@ -420,7 +447,7 @@ export default function ReceptDetail() {
             setRecipe(updated);
             setTargetPortions(updated.portions || 4);
             setEditing(false);
-            showToast(isNL ? "Recept opgeslagen!" : "Recipe saved!");
+            // showToast(isNL ? "Recept opgeslagen!" : "Recipe saved!");
         } catch {
             showToast(isNL ? "Fout bij opslaan" : "Error saving");
         }
@@ -657,12 +684,17 @@ export default function ReceptDetail() {
                             </p>
 
                             <div style={{ display: 'flex', gap: '15px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
-                                {/* Geselecteerde preview */}
-                                <div style={{ width: '120px', height: '120px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#e0e0e0', flexShrink: 0, position: 'relative' }}>
-                                    {editThumbnail ? (
-                                        <img src={editThumbnail} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                {/* Geselecteerde preview met Selector */}
+                                <div style={{ width: '100%', maxWidth: '400px', flexShrink: 0, position: 'relative' }}>
+                                    {sourceImage ? (
+                                        <CoverPhotoSelector 
+                                            imageUrl={sourceImage} 
+                                            onCrop={(dataUrl: string) => setEditThumbnail(dataUrl)} 
+                                        />
                                     ) : (
-                                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: '#999', fontSize: '0.8rem', textAlign: 'center', padding: '10px' }}>{isNL ? 'Geen Omslagfoto' : 'No Cover Photo'}</div>
+                                        <div style={{ width: '100%', aspectRatio: '4/3', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#e0e0e0', borderRadius: '8px', color: '#999', fontSize: '0.8rem', textAlign: 'center', padding: '10px' }}>
+                                            {isNL ? 'Geen Omslagfoto' : 'No Cover Photo'}
+                                        </div>
                                     )}
                                 </div>
 
@@ -679,7 +711,10 @@ export default function ReceptDetail() {
                                                 const r = await fetch('/api/upload/media', { method: 'POST', body: formData });
                                                 if (r.ok) {
                                                     const res = await r.json();
-                                                    if (res.success && res.urls.length > 0) setEditThumbnail(res.urls[0]);
+                                                    if (res.success && res.urls.length > 0) {
+                                                        setSourceImage(res.urls[0]);
+                                                        setEditThumbnail(res.urls[0]);
+                                                    }
                                                 }
                                             } finally { setUploadingThumbnail(false); }
                                         }} />
@@ -693,31 +728,38 @@ export default function ReceptDetail() {
                                                 {/* Original Thumbnail */}
                                                 {recipe.originalThumbnail && (
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                        <img src={recipe.originalThumbnail} onClick={() => setEditThumbnail(recipe.originalThumbnail)} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: editThumbnail === recipe.originalThumbnail ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? 'Originele Omslagfoto' : 'Original Cover Photo'} />
+                                                        <img src={recipe.originalThumbnail} onClick={() => { setSourceImage(recipe.originalThumbnail); setEditThumbnail(recipe.originalThumbnail); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === recipe.originalThumbnail ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? 'Originele Omslagfoto' : 'Original Cover Photo'} />
                                                         <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{isNL ? 'Origineel' : 'Original'}</span>
                                                     </div>
                                                 )}
 
                                                 {/* Suggested Thumbnails */}
-                                                {recipe.suggestedThumbnails && recipe.suggestedThumbnails.split(',').map((s: string) => s.trim()).filter(Boolean).map((url: string, idx: number) => (
-                                                    <div key={`sug-${idx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                        <img src={url} onClick={() => setEditThumbnail(url)} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: editThumbnail === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? `Suggestie ${idx + 1}` : `Suggestion ${idx + 1}`} />
-                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{isNL ? `Optie ${idx + 1}` : `Option ${idx + 1}`}</span>
+                                                {editSuggestedThumbnails.length > 0 && editSuggestedThumbnails.map((url, idx) => (
+                                                    <div key={`sug-${idx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', position: 'relative' }}>
+                                                        <img src={url} onClick={() => { setSourceImage(url); setEditThumbnail(url); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? `Suggestie ${idx + 1}` : `Suggestion ${idx + 1}`} />
+                                                        <button 
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setEditSuggestedThumbnails(prev => prev.filter((_, i) => i !== idx));
+                                                            }}
+                                                            style={{ position: 'absolute', top: '-5px', right: '-5px', backgroundColor: '#ff4444', color: 'white', border: 'none', borderRadius: '50%', width: '20px', height: '20px', fontSize: '12px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.2)', zIndex: 10 }}
+                                                        >✕</button>
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{isNL ? `Suggestie ${idx + 1}` : `Suggestion ${idx + 1}`}</span>
                                                     </div>
                                                 ))}
 
                                                 {/* Divider if we have suggestions and media */}
-                                                {((recipe.originalThumbnail || recipe.suggestedThumbnails) && editMedia.filter(u => u.includes('/api/thumbnail/') || u.match(/\.(jpeg|jpg|png|gif|webp)$/i) || u.startsWith('data:image')).length > 0) && (
+                                                {((recipe.originalThumbnail || editSuggestedThumbnails.length > 0) && editMedia.filter(u => u.includes('/api/thumbnail/') || u.match(/\.(jpeg|jpg|png|gif|webp)$/i) || u.startsWith('data:image')).length > 0) && (
                                                     <div style={{ width: '1px', backgroundColor: 'var(--border-color)', margin: '0 5px' }} />
                                                 )}
 
                                                 {/* Editing Media Gallary Images - Filter out original and suggested to prevent duplicates! */}
                                                 {editMedia
                                                     .filter(u => u.includes('/api/thumbnail/') || u.match(/\.(jpeg|jpg|png|gif|webp)$/i) || u.startsWith('data:image'))
-                                                    .filter(u => u !== recipe.originalThumbnail && !(recipe.suggestedThumbnails && recipe.suggestedThumbnails.includes(u)))
+                                                    .filter(u => u !== recipe.originalThumbnail && !editSuggestedThumbnails.includes(u))
                                                     .map((url, idx) => (
                                                         <div key={`med-${idx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                            <img src={url} onClick={() => setEditThumbnail(url)} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: editThumbnail === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} />
+                                                            <img src={url} onClick={() => { setSourceImage(url); setEditThumbnail(url); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} />
                                                             <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Media</span>
                                                         </div>
                                                     ))}
@@ -728,9 +770,9 @@ export default function ReceptDetail() {
                             </div>
 
                             {/* Extract from video button */}
-                            {editMedia.some(u => u.includes('/api/video/') || u.match(/\.(mp4|mov|webm)$/i)) && !scrubbing && !choosingVideo && (
+                            {editMedia.some(u => u.includes('/api/v/') || u.match(/\.(mp4|mov|webm)$/i)) && !scrubbing && !choosingVideo && (
                                 <button onClick={() => {
-                                    const vids = editMedia.filter(u => u.includes('/api/video/') || u.match(/\.(mp4|mov|webm)$/i));
+                                    const vids = editMedia.filter(u => u.includes('/api/v/') || u.match(/\.(mp4|mov|webm)$/i));
                                     if (vids.length === 1) {
                                         setScrubbingVideoUrl(vids[0]);
                                         setScrubbing(true);
@@ -746,7 +788,7 @@ export default function ReceptDetail() {
                                 <div style={{ marginTop: '15px', padding: '15px', backgroundColor: '#fff', border: '1px solid var(--border-color)', borderRadius: '8px' }}>
                                     <div style={{ fontSize: '0.9rem', marginBottom: '10px', fontWeight: 'bold' }}>{isNL ? 'Kies de video waaruit je de cover foto wilt halen:' : 'Choose the video to extract the cover photo from:'}</div>
                                     <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
-                                        {editMedia.filter(u => u.includes('/api/video/') || u.match(/\.(mp4|mov|webm)$/i)).map((vUrl, idx) => (
+                                        {editMedia.filter(u => u.includes('/api/v/') || u.match(/\.(mp4|mov|webm)$/i)).map((vUrl, idx) => (
                                             <video key={idx} src={`${vUrl}#t=0.001`} onClick={() => {
                                                 setScrubbingVideoUrl(vUrl);
                                                 setChoosingVideo(false);
@@ -819,7 +861,7 @@ export default function ReceptDetail() {
                                 {editMedia
                                     .filter(u => u !== recipe.originalThumbnail && !(recipe.suggestedThumbnails && recipe.suggestedThumbnails.includes(u)))
                                     .map((url, idx) => {
-                                        const isVid = url.includes('/api/video/') || url.match(/\.(mp4|mov|webm)$/i) || url.startsWith('data:video');
+                                        const isVid = url.includes('/api/v/') || url.match(/\.(mp4|mov|webm)$/i) || url.startsWith('data:video');
                                         return (
                                             <div
                                                 key={idx}
@@ -907,7 +949,7 @@ export default function ReceptDetail() {
                                 <div style={{ borderRadius: 'var(--border-radius)', overflow: 'hidden', boxShadow: 'var(--shadow-sm)', position: 'relative' }}>
                                     {allMedia.map((src, idx) => {
                                         const isActive = idx === currentCarouselIndex;
-                                        const isVid = src.includes('/api/video/') || src.match(/\.(mp4|mov|webm)$/i);
+                                        const isVid = src.includes('/api/v/') || src.match(/\.(mp4|mov|webm)$/i);
                                         return (
                                             <div key={idx} style={{ display: isActive ? 'block' : 'none', position: 'relative' }}>
                                                 {isVid ? (

@@ -1,5 +1,10 @@
 FROM node:20-alpine AS base
 
+# Security: Alpine OS + replace bundled npm (node image ships npm@10.8.2 with vulnerable tar/minimatch/glob/…).
+# Must run in base so runner and all stages inherit it — Snyk scans the final image, not only the deps stage.
+RUN apk update && apk upgrade --no-cache \
+  && npm install -g npm@latest
+
 # Install OS-level dependencies
 FROM base AS deps
 RUN apk add --no-cache libc6-compat openssl python3 make g++
@@ -35,9 +40,9 @@ FROM base AS runtime-deps
 COPY --from=oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
 RUN apk add --no-cache openssl python3
 WORKDIR /runtime-deps
-COPY package.json ./
-# Use bun to quickly install runtime dependencies
-RUN bun add prisma@7 @prisma/client@7 @prisma/adapter-better-sqlite3@7 dotenv yt-dlp-exec@1 jsdom dompurify --no-save && \
+COPY package.json bun.lock ./
+# Production deps + lockfile so versions and overrides (hono, undici, …) match the repo and Snyk
+RUN bun install --production --frozen-lockfile && \
     node node_modules/@prisma/engines/dist/scripts/postinstall.js
 
 # Production runtime image

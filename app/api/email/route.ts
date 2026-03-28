@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import nodemailer from 'nodemailer';
 import { prisma } from '@/lib/prisma';
+import { getSmtpTransporter } from '@/lib/smtp';
 
 export async function POST(req: Request) {
   try {
@@ -14,19 +14,7 @@ export async function POST(req: Request) {
 
     if (!recipe) return NextResponse.json({ error: "Recept niet gevonden" }, { status: 404 });
 
-    const smtpPort = parseInt(process.env.SMTP_PORT || '1025');
-    const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST || 'localhost',
-      port: smtpPort,
-      secure: smtpPort === 465, // True voor port 465, false voor andere ports (zoals 587)
-      auth: process.env.SMTP_USER ? {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      } : undefined,
-      tls: {
-        rejectUnauthorized: false
-      }
-    });
+    const transporter = getSmtpTransporter();
 
     const ingredientsHtml = recipe.ingredients.map(i =>
       `<li style="padding: 4px 0;">${i.amount || ''} ${i.unit || ''} ${i.name}</li>`

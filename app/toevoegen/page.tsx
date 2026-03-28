@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
+import CoverPhotoSelector from '@/components/CoverPhotoSelector';
 
 export default function Toevoegen() {
     const { t, isNL } = useI18n();
@@ -27,6 +28,8 @@ export default function Toevoegen() {
     const [ingredients, setIngredients] = useState<any[]>([{ name: '', amount: null, unit: '' }]);
     const [steps, setSteps] = useState<any[]>([{ description: '' }]);
     const [mediaFiles, setMediaFiles] = useState<File[]>([]);
+    const [coverPhoto, setCoverPhoto] = useState<string | null>(null);
+    const [tempCoverUrl, setTempCoverUrl] = useState<string | null>(null);
 
     // Queue State
     const [jobs, setJobs] = useState<any[]>([]);
@@ -200,6 +203,11 @@ export default function Toevoegen() {
             formData.append('ingredients', JSON.stringify(filteredIngredients));
             formData.append('steps', JSON.stringify(filteredSteps));
 
+            if (coverPhoto) {
+                // If the user cropped the image, coverPhoto is a data URL
+                formData.append('thumbnail', coverPhoto);
+            }
+
             mediaFiles.forEach(f => formData.append('mediaFiles', f));
 
             const res = await fetch('/api/recept', {
@@ -218,6 +226,25 @@ export default function Toevoegen() {
         }
     }
     const inputStyle = { padding: '10px', fontSize: '1rem', borderRadius: '8px', border: '1px solid var(--border-color)', width: '100%', marginBottom: '15px' };
+    
+    // Internal component for handling object URLs safely
+    const ManualMediaPreview = ({ file, isSelected, onClick }: { file: File, isSelected: boolean, onClick: (url: string) => void }) => {
+        const [url, setUrl] = useState<string | null>(null);
+        useEffect(() => {
+            const u = URL.createObjectURL(file);
+            setUrl(u);
+            return () => URL.revokeObjectURL(u);
+        }, [file]);
+
+        if (!url) return null;
+        return (
+            <img 
+                src={url} 
+                onClick={() => onClick(url)}
+                style={{ width: '60px', height: '60px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: isSelected ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }}
+            />
+        );
+    };
 
     return (
         <div style={{ maxWidth: '800px', margin: '40px auto' }}>
@@ -443,6 +470,22 @@ export default function Toevoegen() {
                             </div>
 
                             <div style={{ marginBottom: '30px' }}>
+                                <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{isNL ? 'Omslagfoto (Hoofdafbeelding)' : 'Cover Photo (Main Image)'}</label>
+                                <div style={{ marginBottom: '15px' }}>
+                                    {tempCoverUrl ? (
+                                        <div style={{ maxWidth: '400px' }}>
+                                            <CoverPhotoSelector 
+                                                imageUrl={tempCoverUrl} 
+                                                onCrop={(dataUrl: string) => setCoverPhoto(dataUrl)} 
+                                            />
+                                        </div>
+                                    ) : (
+                                        <div style={{ width: '100%', aspectRatio: '4/3', backgroundColor: 'var(--bg-secondary)', borderRadius: '8px', border: '2px dashed var(--border-color)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: 'var(--text-secondary)' }}>
+                                            {isNL ? 'Selecteer een foto hieronder om bij te snijden' : 'Select a photo below to crop'}
+                                        </div>
+                                    )}
+                                </div>
+                                
                                 <label style={{ fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>{isNL ? "Eigen Media Uploaden (Optioneel, foto's & video's)" : 'Upload Media (Optional, photos & videos)'}</label>
                                 <div style={{ position: 'relative', overflow: 'hidden', display: 'flex', width: '100%' }}>
                                     <input
@@ -451,7 +494,14 @@ export default function Toevoegen() {
                                         multiple
                                         onChange={e => {
                                             if (e.target.files) {
-                                                setMediaFiles(prev => [...prev, ...Array.from(e.target.files!)]);
+                                                const files = Array.from(e.target.files!);
+                                                setMediaFiles(prev => [...prev, ...files]);
+                                                
+                                                // If no cover photo is set, and we just uploaded an image, set it as temp cover
+                                                const firstImage = files.find(f => f.type.startsWith('image/'));
+                                                if (firstImage && !tempCoverUrl) {
+                                                    setTempCoverUrl(URL.createObjectURL(firstImage));
+                                                }
                                                 e.target.value = '';
                                             }
                                         }}
@@ -461,6 +511,17 @@ export default function Toevoegen() {
                                         <span style={{ fontWeight: '500' }}>{mediaFiles.length > 0 ? (isNL ? `${mediaFiles.length} bestand(en) geselecteerd` : `${mediaFiles.length} file(s) selected`) : (isNL ? "Klik hier om foto's en video's te selecteren..." : 'Click here to select photos and videos...')}</span>
                                     </div>
                                 </div>
+
+                                {mediaFiles.filter(f => f.type.startsWith('image/')).length > 0 && (
+                                    <div style={{ marginTop: '10px', display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: '5px' }}>
+                                        {mediaFiles.filter(f => f.type.startsWith('image/')).map((f, i) => {
+                                            // Find or create object URL
+                                            // For simplicity, we can use a ref or just rely on the fact that these are small files.
+                                            // But let's be better:
+                                            return <ManualMediaPreview key={i} file={f} isSelected={tempCoverUrl !== null && tempCoverUrl.includes(f.name)} onClick={(url) => setTempCoverUrl(url)} />;
+                                        })}
+                                    </div>
+                                )}
                             </div>
                         </div>
 
