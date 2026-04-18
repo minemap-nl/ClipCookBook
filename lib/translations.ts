@@ -1,6 +1,7 @@
 export const translations = {
     // Layout / Header
     add: { en: '+ Add', nl: '+ Toevoegen' },
+    footerMadeBy: { en: 'Made by', nl: 'Gemaakt door' },
 
     // Metadata
     metaDescription: { en: 'Your own vibrant recipe collection', nl: 'Jouw eigen levendige receptencollectie' },

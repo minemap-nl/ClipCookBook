@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
+import { IconCart, IconTag, IconClipboard, IconCheck, IconX } from '@/components/ui-icons';
 
 export default function Home() {
     const { t, isNL } = useI18n();
@@ -141,7 +142,7 @@ export default function Home() {
             });
         });
 
-        let listContent = isNL ? "🛒 Boodschappenlijst:\n\n" : "🛒 Shopping List:\n\n";
+        let listContent = isNL ? "Boodschappenlijst\n\n" : "Shopping list\n\n";
 
         // Group by category if we wanted to, but for now just sort alphabetically
         const sortedKeys = Array.from(ingredientsMap.keys()).sort();
@@ -235,12 +236,14 @@ export default function Home() {
                         )}
                     </button>
                     <button
+                        type="button"
                         onClick={toggleSelectionMode}
                         className={`btn ${selectionMode ? 'btn' : 'btn-secondary'}`}
-                        style={{ padding: '0 20px', fontSize: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        style={{ padding: '0 18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                         title={t('generateList')}
+                        aria-pressed={selectionMode}
                     >
-                        🛒
+                        <IconCart size={22} />
                     </button>
                     {selectionMode && selectedRecipes.size > 0 && (
                         <button onClick={openPortionModal} className="btn" style={{ padding: '0 20px' }}>
@@ -252,15 +255,20 @@ export default function Home() {
                 {allUniqueTags.length > 0 && showFilters && (
                     <div style={{ marginTop: '10px', padding: '15px', backgroundColor: 'var(--bg-card)', borderRadius: 'var(--border-radius)', border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)', animation: 'fadeIn 0.2s ease-out' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-                            <span style={{ fontSize: '1.05rem', fontWeight: '600', color: 'var(--text-primary)' }}>
-                                🏷️ {isNL ? 'Filter op Categorie:' : 'Filter by Category:'}
+                            <span style={{ fontSize: '1.05rem', fontWeight: '600', color: 'var(--text-primary)', display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ color: 'var(--text-secondary)', display: 'flex', flexShrink: 0 }} aria-hidden>
+                                    <IconTag size={20} />
+                                </span>
+                                {isNL ? 'Filter op categorie' : 'Filter by category'}
                             </span>
                             {selectedTags.length > 0 && (
                                 <button
+                                    type="button"
                                     onClick={() => setSelectedTags([])}
-                                    style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', padding: '4px 8px' }}
+                                    style={{ background: 'none', border: 'none', color: 'var(--primary-color)', cursor: 'pointer', fontSize: '0.9rem', fontWeight: '600', padding: '4px 8px', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                                 >
-                                    ✕ {isNL ? 'Wis alle filters' : 'Clear all filters'}
+                                    <IconX size={16} />
+                                    {isNL ? 'Wis alle filters' : 'Clear all filters'}
                                 </button>
                             )}
                         </div>
@@ -277,8 +285,7 @@ export default function Home() {
                                             backgroundColor: isSelected ? 'var(--primary-color)' : 'transparent',
                                             color: isSelected ? 'white' : 'var(--text-secondary)',
                                             borderColor: isSelected ? 'var(--primary-color)' : 'var(--border-color)',
-                                            boxShadow: isSelected ? '0 4px 12px rgba(255, 90, 95, 0.25)' : 'none',
-                                            transform: isSelected ? 'scale(1.02)' : 'scale(1)'
+                                            boxShadow: isSelected ? '0 4px 12px rgba(255, 90, 95, 0.25)' : 'none'
                                         }}
                                         onMouseOver={e => {
                                             if (!isSelected) {
@@ -363,7 +370,7 @@ export default function Home() {
                                                     marginLeft: '10px', flexShrink: 0
                                                 }}
                                             >
-                                                {isSelected && <span style={{ color: 'white', fontSize: '16px' }}>✓</span>}
+                                                {isSelected && <IconCheck size={14} style={{ color: '#fff' }} />}
                                             </div>
                                         )}
                                     </div>
@@ -450,7 +457,10 @@ export default function Home() {
                             style={{ flex: 1, minHeight: '300px', padding: '15px', borderRadius: '8px', border: '1px solid var(--border-color)', fontFamily: 'monospace', fontSize: '0.95rem', resize: 'none' }}
                         />
                         <div style={{ display: 'flex', gap: '10px', marginTop: '20px' }}>
-                            <button className="btn" style={{ flex: 1 }} onClick={copyShoppingList}>📋 {t('copyToClipboard')}</button>
+                            <button type="button" className="btn" style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }} onClick={copyShoppingList}>
+                                <IconClipboard size={20} />
+                                {t('copyToClipboard')}
+                            </button>
                             <button className="btn btn-secondary" style={{ flex: 1 }} onClick={() => { setShowShoppingList(false); setSelectionMode(false); setSelectedRecipes(new Set()); }}>{t('close')}</button>
                         </div>
                     </div>

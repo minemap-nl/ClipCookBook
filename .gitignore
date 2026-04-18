@@ -67,3 +67,4 @@ backups/
 # Temp files
 tmp_*
 ultimate_truth.ts
+/.cursor
