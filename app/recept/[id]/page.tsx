@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
 import { buildTimerRegex, parseTimeToMs } from '@/lib/timerParser';
 import CoverPhotoSelector from '@/components/CoverPhotoSelector';
+import { IconSmartphone, IconFlame } from '@/components/ui-icons';
 
 let globalAlarmAudio: HTMLAudioElement | null = null;
 
@@ -596,11 +597,13 @@ export default function ReceptDetail() {
                         ← {isNL ? 'Terug naar overzicht' : 'Back to overview'}
                     </Link>
                     <button
+                        type="button"
                         onClick={toggleWakeLock}
                         className={`btn ${wakeLockEnabled ? '' : 'btn-secondary'}`}
-                        style={{ padding: '8px 16px', fontSize: '0.9rem' }}
+                        style={{ padding: '8px 10px', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
                     >
-                        {wakeLockEnabled ? (isNL ? '🔥 Scherm blijft aan' : '🔥 Screen stays on') : (isNL ? '📱 Kookmodus' : '📱 Cook mode')}
+                        {wakeLockEnabled ? <IconFlame size={18} /> : <IconSmartphone size={18} />}
+                        {wakeLockEnabled ? (isNL ? 'Scherm blijft aan' : 'Screen stays on') : (isNL ? 'Kookmodus' : 'Cook mode')}
                     </button>
                 </div>
 

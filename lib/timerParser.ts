@@ -7,6 +7,7 @@
  * - Written-out numbers (EN): "fifteen minutes", "three hours"
  * - Written-out numbers (NL): "twee uur", "vijf minuten"
  * - Compound times: "1 uur en 10 minuten", "2 hours and 15 minutes"
+ * - Ranges (min of bounds): "5 tot 10 minuten", "10-15 min", "15 of 20 minuten", "five to ten minutes"
  * - Special Dutch words: "kwartier" (15min), "half uur" (30min), "anderhalf uur" (90min)
  */
 
@@ -172,7 +173,7 @@ export function buildTimerRegex(): RegExp {
 /**
  * Parse a matched time string into total milliseconds.
  * - Handles compound expressions (sum the parts).
- * - Handles ranges (pick the maximum number).
+ * - Handles ranges (pick the minimum number: e.g. "5 tot 10 minuten" → 5 min).
  */
 export function parseTimeToMs(timeStr: string): number {
     const lower = timeStr.toLowerCase();
@@ -229,19 +230,20 @@ export function parseTimeToMs(timeStr: string): number {
             const sepRegex = /\s*(?:of|or|to|tot)\s*|,\s+/;
             const numStrings = normalizedNumbers.split(sepRegex).map(s => s.trim()).filter(Boolean);
 
-            let maxVal = 0;
+            const values: number[] = [];
             for (const s of numStrings) {
                 const val = parseNumberValue(s);
-                if (val !== null && val > maxVal) {
-                    maxVal = val;
+                if (val !== null && val > 0) {
+                    values.push(val);
                 }
             }
 
-            if (maxVal > 0) {
+            if (values.length > 0) {
+                const chosenVal = Math.min(...values);
                 if (unit === 'kwartier') {
-                    totalMs += maxVal * 15 * 60 * 1000;
+                    totalMs += chosenVal * 15 * 60 * 1000;
                 } else {
-                    totalMs += maxVal * unitToMs(unit);
+                    totalMs += chosenVal * unitToMs(unit);
                 }
             }
             continue;

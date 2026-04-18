@@ -50,6 +50,24 @@ export default function RootLayout({
                     <main className="container animate-in">
                         {children}
                     </main>
+
+                    <footer className="site-footer">
+                        <div className="site-footer-inner">
+                            <span className="site-footer-line">
+                                {getTranslation('footerMadeBy', lang)}{' '}
+                                <a
+                                    href="https://github.com/minemap-nl/"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="site-footer-link"
+                                >
+                                    Minemap-NL
+                                </a>
+                                <span className="site-footer-sep" aria-hidden>   </span>
+                                <span className="site-footer-copy">©2026</span>
+                            </span>
+                        </div>
+                    </footer>
                 </LanguageProvider>
             </body>
         </html>

@@ -88,25 +88,41 @@ describe("parseTimeToMs", () => {
         expect(parseTimeToMs("1 uur en tien minuten")).toBe(70 * 60 * 1000);
     });
 
-    // Ranges
-    test("15 of 20 minuten → 20 min (max)", () => {
-        expect(parseTimeToMs("15 of 20 minuten")).toBe(20 * 60 * 1000);
+    // Ranges: use minimum (conservative timer)
+    test("5 tot 10 minuten → 5 min", () => {
+        expect(parseTimeToMs("5 tot 10 minuten")).toBe(5 * 60 * 1000);
     });
 
-    test("10-15 minuten → 15 min (max)", () => {
-        expect(parseTimeToMs("10-15 minuten")).toBe(15 * 60 * 1000);
+    test("5 to 10 minutes → 5 min", () => {
+        expect(parseTimeToMs("5 to 10 minutes")).toBe(5 * 60 * 1000);
     });
 
-    test("15, 20 minuten → 20 min (max)", () => {
-        expect(parseTimeToMs("15, 20 minuten")).toBe(20 * 60 * 1000);
+    test("vijf tot tien minuten → 5 min", () => {
+        expect(parseTimeToMs("vijf tot tien minuten")).toBe(5 * 60 * 1000);
     });
 
-    test("1,5 of 2 uur → 2 hours (max)", () => {
-        expect(parseTimeToMs("1,5 of 2 uur")).toBe(2 * 60 * 60 * 1000);
+    test("five to ten minutes → 5 min", () => {
+        expect(parseTimeToMs("five to ten minutes")).toBe(5 * 60 * 1000);
     });
 
-    test("twee of drie kwartier → 45 min (max)", () => {
-        expect(parseTimeToMs("twee of drie kwartier")).toBe(45 * 60 * 1000);
+    test("15 of 20 minuten → 15 min (min)", () => {
+        expect(parseTimeToMs("15 of 20 minuten")).toBe(15 * 60 * 1000);
+    });
+
+    test("10-15 minuten → 10 min (min)", () => {
+        expect(parseTimeToMs("10-15 minuten")).toBe(10 * 60 * 1000);
+    });
+
+    test("15, 20 minuten → 15 min (min)", () => {
+        expect(parseTimeToMs("15, 20 minuten")).toBe(15 * 60 * 1000);
+    });
+
+    test("1,5 of 2 uur → 1.5 hours (min)", () => {
+        expect(parseTimeToMs("1,5 of 2 uur")).toBe(1.5 * 60 * 60 * 1000);
+    });
+
+    test("twee of drie kwartier → 30 min (min)", () => {
+        expect(parseTimeToMs("twee of drie kwartier")).toBe(30 * 60 * 1000);
     });
 });
 
@@ -122,7 +138,7 @@ describe("parseTimeMatches", () => {
         const matches = parseTimeMatches("Bak 15 of 20 minuten.");
         expect(matches.length).toBe(1);
         expect(matches[0].fullMatch).toBe("15 of 20 minuten");
-        expect(matches[0].ms).toBe(20 * 60 * 1000);
+        expect(matches[0].ms).toBe(15 * 60 * 1000);
     });
 
     test("finds compound time in sentence", () => {

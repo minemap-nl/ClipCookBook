@@ -108,6 +108,7 @@ a:hover {
 .btn-secondary:hover {
     background-color: #F0E0C8;
     transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
 }
 
 .btn-danger {
@@ -117,6 +118,8 @@ a:hover {
 
 .btn-danger:hover {
     background-color: #BA6464;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 14px rgba(186, 100, 100, 0.35);
 }
 
 /* === Layout === */
@@ -134,6 +137,55 @@ a:hover {
     padding: 20px;
     width: 100%;
     flex: 1;
+}
+
+/* === Footer === */
+.site-footer {
+    margin-top: auto;
+    border-top: 1px solid var(--border-color);
+    background-color: var(--bg-card);
+    padding: 16px 20px;
+}
+
+.site-footer-inner {
+    max-width: 1400px;
+    margin: 0 auto;
+    text-align: center;
+}
+
+.site-footer-line {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.site-footer-link {
+    color: var(--primary-color);
+    font-weight: 500;
+    text-decoration: none;
+    transition: var(--transition);
+}
+
+.site-footer-link:hover {
+    color: var(--primary-hover);
+    text-decoration: underline;
+}
+
+.site-footer-sep {
+    color: var(--text-light);
+}
+
+.site-footer-copy {
+    color: var(--text-light);
+}
+
+@media (max-width: 600px) {
+    .site-footer {
+        padding: 12px 16px;
+    }
+
+    .site-footer-line {
+        font-size: 0.8rem;
+    }
 }
 
 /* === Input === */
@@ -249,6 +301,26 @@ label {
 
 .animate-in {
     animation: fadeIn 0.5s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .animate-in {
+        animation: none;
+        opacity: 1;
+        transform: none;
+    }
+
+    .spinner {
+        animation: none;
+        border-top-color: var(--primary-color, #FF5A5F);
+        opacity: 0.85;
+    }
+
+    .btn:hover,
+    .btn-secondary:hover,
+    .btn-danger:hover {
+        transform: none;
+    }
 }
 
 /* ========================================
