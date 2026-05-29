@@ -1,18 +1,18 @@
 FROM node:20-alpine AS base
 
-# Security: Alpine OS + replace bundled npm (node image ships npm@10.8.2 with vulnerable tar/minimatch/glob/…).
-# Must run in base so runner and all stages inherit it — Snyk scans the final image, not only the deps stage.
-RUN apk update && apk upgrade --no-cache \
-  && npm install -g npm@latest
+# Security: upgrade Alpine packages (lcms2, xz-libs, libpng via ffmpeg, etc.) in every stage.
+RUN apk update && apk upgrade --no-cache
 
 # Install OS-level dependencies
 FROM base AS deps
 RUN apk add --no-cache libc6-compat openssl python3 make g++
+# npm only in build stage (for better-sqlite3 rebuild); not in final runner image (Snyk: npm@11 transitive vulns).
+RUN npm install -g npm@11.16.0
 WORKDIR /app
 
 # Copy dependency graphs and install with bun
 COPY package.json bun.lock* ./
-COPY --from=oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.3-alpine /usr/local/bin/bun /usr/local/bin/bun
 RUN bun install
 
 # Ensure better-sqlite3 native binding is compiled at the standard path
@@ -20,8 +20,8 @@ RUN npm rebuild better-sqlite3
 
 # Rebuild the source code
 FROM base AS builder
-COPY --from=oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
-COPY --from=oven/bun:1-alpine /usr/local/bin/bunx /usr/local/bin/bunx
+COPY --from=oven/bun:1.3-alpine /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.3-alpine /usr/local/bin/bunx /usr/local/bin/bunx
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
@@ -37,7 +37,7 @@ RUN bun run build
 # Isolated stage: install runtime node_modules in a clean environment
 # Includes prisma CLI (for db push), adapter, dotenv, and serverExternalPackages
 FROM base AS runtime-deps
-COPY --from=oven/bun:1-alpine /usr/local/bin/bun /usr/local/bin/bun
+COPY --from=oven/bun:1.3-alpine /usr/local/bin/bun /usr/local/bin/bun
 RUN apk add --no-cache openssl python3
 WORKDIR /runtime-deps
 COPY package.json bun.lock ./
@@ -52,8 +52,14 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 
-# Install runtime dependencies required for yt-dlp
-RUN apk add --no-cache python3 ffmpeg openssl su-exec
+# Runtime uses node only (entrypoint: prisma db push + server.js). Bundled npm@10.8.2 is not
+# needed and triggers Snyk (cross-spawn, minimatch, tar, glob, pacote, brace-expansion, …).
+RUN rm -rf /usr/local/lib/node_modules/npm \
+  && rm -f /usr/local/bin/npm /usr/local/bin/npx
+
+# Runtime deps for yt-dlp; upgrade again so ffmpeg pulls patched lcms2/libpng/xz.
+RUN apk update && apk upgrade --no-cache \
+  && apk add --no-cache python3 ffmpeg openssl su-exec
 
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
