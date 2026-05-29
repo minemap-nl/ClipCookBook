@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
 import { buildTimerRegex, parseTimeToMs } from '@/lib/timerParser';
 import { IconSmartphone, IconFlame } from '@/components/ui-icons';
+import { safeExternalHref, safeImageSrc } from '@/lib/safe-url-client';
 
 let globalAlarmAudio: HTMLAudioElement | null = null;
 
@@ -339,9 +340,9 @@ export default function ReceptDetail() {
                         ))}
                     </div>
                 )}
-                {recipe.originalUrl && (
+                {safeExternalHref(recipe.originalUrl) && (
                     <p style={{ color: 'var(--text-light)', marginBottom: '20px' }}>
-                        <a href={recipe.originalUrl} target="_blank" rel="noreferrer" style={{ textDecoration: 'underline' }}>{isNL ? 'Originele Bron' : 'Original Source'}</a>
+                        <a href={safeExternalHref(recipe.originalUrl)} target="_blank" rel="noreferrer noopener" style={{ textDecoration: 'underline' }}>{isNL ? 'Originele Bron' : 'Original Source'}</a>
                     </p>
                 )}
 
@@ -357,7 +358,7 @@ export default function ReceptDetail() {
                                             <>
                                                 <video
                                                     ref={(el) => { videoRefs.current[idx] = el; }}
-                                                    src={src}
+                                                    src={safeImageSrc(src)}
                                                     controls
                                                     playsInline
                                                     preload="auto"
@@ -391,7 +392,7 @@ export default function ReceptDetail() {
                                         ) : (
                                             <>
                                                 <img
-                                                    src={src}
+                                                    src={safeImageSrc(src)}
                                                     style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', backgroundColor: '#f0f0f0', display: 'block', cursor: 'pointer' }}
                                                     onClick={() => setViewerIndex(idx)}
                                                 />
@@ -589,7 +590,7 @@ export default function ReceptDetail() {
                     {(() => {
                         const mSrc = allMedia[viewerIndex];
                         if (!mSrc) return null;
-                        return <img src={mSrc} alt="Fullscreen view" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '85vh', objectFit: 'contain' }} />;
+                        return <img src={safeImageSrc(mSrc)} alt="Fullscreen view" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '85vh', objectFit: 'contain' }} />;
                     })()}
 
                     {allMedia.length > 1 && (

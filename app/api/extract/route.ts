@@ -5,6 +5,7 @@ import fs from 'fs';
 import { prisma } from '@/lib/prisma';
 import { extractRecipeData, extractRecipeDataAI, extractRecipeDataFromVideo } from '@/lib/extractor';
 import { canonicalSourceUrl, normalizeSourceUrl } from '@/lib/normalize-source-url';
+import { getSafeFetchUrl, safeFetch } from '@/lib/safe-url';
 import { findExistingRecipeBySourceUrl } from '@/lib/find-recipe-by-source-url';
 import { extractFrames } from '@/lib/ffmpeg';
 import DOMPurify from 'dompurify';
@@ -22,8 +23,8 @@ function sanitize(text: string | null | undefined) {
 // Download een afbeelding van een URL en sla hem lokaal op
 async function downloadThumbnail(url: string, destPath: string): Promise<boolean> {
     try {
-        const res = await fetch(url);
-        if (!res.ok) return false;
+        const res = await safeFetch(url);
+        if (!res || !res.ok) return false;
         const buffer = Buffer.from(await res.arrayBuffer());
         fs.writeFileSync(destPath, buffer);
         return true;
@@ -57,7 +58,8 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
         if (!isVideoPlatform) {
             await prisma.importJob.update({ where: { id: jobId }, data: { message: "Website analyseren..." } });
 
-            const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+            const res = await safeFetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)' } });
+            if (!res || !res.ok) throw new Error('Website kon niet worden opgehaald');
             const htmlText = await res.text();
             const window = new JSDOM(htmlText).window;
             const document = window.document;
@@ -69,7 +71,7 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
             extracted = await extractRecipeDataAI(cleanText);
 
             const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
-            if (ogImage) {
+            if (ogImage && getSafeFetchUrl(ogImage)) {
                 const ok = await downloadThumbnail(ogImage, thumbPath);
                 if (ok) finalThumbnail = `/api/thumbnail/${thumbName}`;
             }
@@ -106,7 +108,7 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
             });
 
             const thumbPromise = (async () => {
-                if (info.thumbnail) {
+                if (info.thumbnail && getSafeFetchUrl(info.thumbnail)) {
                     const ok = await downloadThumbnail(info.thumbnail, thumbPath);
                     if (ok) finalThumbnail = `/api/thumbnail/${thumbName}`;
                 }
@@ -122,8 +124,8 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
                             const lowerUrl = foundUrl.toLowerCase();
                             if (!lowerUrl.includes('instagram.com') && !lowerUrl.includes('tiktok.com') && !lowerUrl.includes('youtu')) {
                                 try {
-                                    const fetchRes = await fetch(foundUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(4000) });
-                                    if (fetchRes.ok) {
+                                    const fetchRes = await safeFetch(foundUrl, { headers: { 'User-Agent': 'Mozilla/5.0' }, signal: AbortSignal.timeout(4000) });
+                                    if (fetchRes?.ok) {
                                         const html = await fetchRes.text();
                                         const win = new JSDOM(html).window;
                                         win.document.querySelectorAll("script, style, noscript, nav, footer, header").forEach(el => el.remove());
@@ -244,6 +246,9 @@ export async function POST(req: Request) {
 
         // Drop tracking params (igsh, utm_*, …) but keep content ids: YouTube ?v=, ?list=, ?t=, etc.
         const cleanUrl = normalizeSourceUrl(url);
+        if (!getSafeFetchUrl(cleanUrl)) {
+            return NextResponse.json({ error: "Ongeldige of niet-toegestane URL" }, { status: 400 });
+        }
 
         const existingRecipe = await findExistingRecipeBySourceUrl(url);
 

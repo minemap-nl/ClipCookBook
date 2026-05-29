@@ -346,7 +346,9 @@ Rules:
 
 // --- Error messages ---
 const ERR = {
-    noApiKey: isNL ? "Geen Gemini API key gevonden in .env file." : "No Gemini API key found in .env file.",
+    missingGeminiEnv: isNL
+        ? "Geen Gemini API-configuratie gevonden in .env."
+        : "Gemini API configuration missing in .env file.",
     notRecipeText: isNL ? "Gefilterd: Tekst was geen recept." : "Filtered: Text was not a recipe.",
     videoFailed: "Video processing failed by Google AI.",
     notRecipeVideo: isNL
@@ -359,7 +361,7 @@ const ERR = {
 
 export async function extractRecipeDataAI(text: string): Promise<ExtractedData> {
     if (!process.env.GEMINI_API_KEY) {
-        throw new Error(ERR.noApiKey);
+        throw new Error(ERR.missingGeminiEnv);
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -409,7 +411,7 @@ export async function extractRecipeDataAI(text: string): Promise<ExtractedData> 
 
 export async function extractRecipeDataFromVideo(videoPath: string, fallbackText: string): Promise<ExtractedData> {
     if (!process.env.GEMINI_API_KEY) {
-        throw new Error(ERR.noApiKey);
+        throw new Error(ERR.missingGeminiEnv);
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -500,7 +502,7 @@ export async function extractRecipeDataFromVideo(videoPath: string, fallbackText
 
 export async function extractRecipeDataFromImages(imagePaths: string[], fallbackText: string): Promise<ExtractedData> {
     if (!process.env.GEMINI_API_KEY) {
-        throw new Error(ERR.noApiKey);
+        throw new Error(ERR.missingGeminiEnv);
     }
 
     const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
