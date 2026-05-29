@@ -5,6 +5,8 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
 import { IconCart, IconTag, IconClipboard, IconCheck, IconX } from '@/components/ui-icons';
+import { SafeImg, SafeVideo } from '@/components/SafeMedia';
+import { sanitizeRecipeForDisplay } from '@/lib/safe-url-client';
 
 export default function Home() {
     const { t, isNL } = useI18n();
@@ -49,7 +51,7 @@ export default function Home() {
             })
             .then(data => {
                 if (!data) return;
-                setRecipes(Array.isArray(data) ? data : []);
+                setRecipes(Array.isArray(data) ? data.map(sanitizeRecipeForDisplay) : []);
                 setLoading(false);
             })
             .catch(e => {
@@ -337,8 +339,8 @@ export default function Home() {
                                 {/* Thumbnail afbeelding */}
                                 {recipe.thumbnailPath ? (
                                     <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', backgroundColor: '#f0f0f0' }}>
-                                        <img
-                                            src={recipe.thumbnailPath}
+                                        <SafeImg
+                                            url={recipe.thumbnailPath}
                                             alt={recipe.title}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
                                             loading="lazy"
@@ -346,8 +348,8 @@ export default function Home() {
                                     </div>
                                 ) : recipe.videoPath ? (
                                     <div style={{ width: '100%', aspectRatio: '4/3', overflow: 'hidden', backgroundColor: '#000' }}>
-                                        <video
-                                            src={recipe.videoPath}
+                                        <SafeVideo
+                                            url={recipe.videoPath}
                                             style={{ width: '100%', height: '100%', objectFit: 'cover', objectPosition: 'center' }}
                                             preload="metadata"
                                             muted

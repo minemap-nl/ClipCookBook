@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { safeImageSrc } from '@/lib/safe-url-client';
+import { SafeImg } from '@/components/SafeMedia';
 
 interface CoverPhotoSelectorProps {
     imageUrl: string;
@@ -389,9 +389,9 @@ export default function CoverPhotoSelector({ imageUrl, onCrop }: CoverPhotoSelec
                         pointerEvents: 'none'
                     }}
                 >
-                    <img
+                    <SafeImg
                         ref={imageRef}
-                        src={safeImageSrc(imageUrl)}
+                        url={imageUrl}
                         alt="Target"
                         style={{ display: 'block', maxWidth: 'none' }}
                         onLoad={() => {

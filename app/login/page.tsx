@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useI18n } from '@/lib/i18n';
+import { safeRedirectPath } from '@/lib/safe-url-client';
 
 export default function Login() {
     const { t } = useI18n();
@@ -25,8 +26,7 @@ export default function Login() {
 
             if (res.ok) {
                 const params = new URLSearchParams(window.location.search);
-                const from = params.get('from') || '/';
-                window.location.href = from;
+                router.replace(safeRedirectPath(params.get('from')));
             } else {
                 const data = await res.json();
                 setError(data.error || t('loginFailed'));

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
 import CoverPhotoSelector from '@/components/CoverPhotoSelector';
+import { SafeImg } from '@/components/SafeMedia';
 
 export default function Toevoegen() {
     const { t, isNL } = useI18n();
@@ -415,7 +416,7 @@ export default function Toevoegen() {
                                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '15px' }}>
                                         {photoPreviews.map((src, idx) => (
                                             <div key={idx} style={{ position: 'relative', paddingTop: '100%', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 2px 8px rgba(0,0,0,0.1)' }}>
-                                                <img src={src} alt="preview" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <SafeImg url={src} alt="preview" style={{ position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', objectFit: 'cover' }} />
                                                 <button
                                                     type="button"
                                                     onClick={() => handlePhotoRemove(idx)}

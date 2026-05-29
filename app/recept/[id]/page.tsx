@@ -8,7 +8,8 @@ import { useI18n } from '@/lib/i18n';
 import { buildTimerRegex, parseTimeToMs } from '@/lib/timerParser';
 import CoverPhotoSelector from '@/components/CoverPhotoSelector';
 import { IconSmartphone, IconFlame } from '@/components/ui-icons';
-import { safeExternalHref, safeImageSrc } from '@/lib/safe-url-client';
+import { safeImageSrc, sanitizeRecipeForDisplay } from '@/lib/safe-url-client';
+import { SafeExternalLink, SafeImg, SafeVideo } from '@/components/SafeMedia';
 
 let globalAlarmAudio: HTMLAudioElement | null = null;
 
@@ -193,9 +194,9 @@ const FilmstripScrubber = ({ videoRef, onCapture, onCancel }: { videoRef: React.
                             div::-webkit-scrollbar { display: none; }
                         `}</style>
                         {frames.map((src, i) => (
-                            <img
+                            <SafeImg
                                 key={i}
-                                src={safeImageSrc(src)}
+                                url={src}
                                 alt="frame"
                                 draggable={false} // Prevent default browser image drag
                                 style={{ height: '60px', width: 'auto', flexShrink: 0, objectFit: 'cover', opacity: 0.8, pointerEvents: 'none' }}
@@ -342,7 +343,12 @@ export default function ReceptDetail() {
     useEffect(() => {
         fetch(`/api/recept/${id}`, { credentials: 'include' })
             .then(r => { if (r.status === 401) { window.location.reload(); return; } if (!r.ok) throw new Error(isNL ? "Niet gevonden" : "Not found"); return r.json(); })
-            .then(data => { setRecipe(data); setTargetPortions(data.portions || 4); setLoading(false); })
+            .then(data => {
+                const safe = sanitizeRecipeForDisplay(data);
+                setRecipe(safe);
+                setTargetPortions(safe.portions || 4);
+                setLoading(false);
+            })
             .catch(e => { setErrorMsg(e.message); setLoading(false); });
     }, [id]);
 
@@ -388,10 +394,14 @@ export default function ReceptDetail() {
         setEditTags(recipe.tags ? recipe.tags.split(',').map((t: string) => t.trim()).filter((t: string) => t !== '') : []);
         setEditIngredients(recipe.ingredients?.map((i: any) => ({ name: i.name, amount: i.amount, unit: i.unit || '' })) || []);
         setEditSteps(recipe.steps?.map((s: any) => ({ description: s.description })) || []);
-        setEditMedia([...allMedia]); // Copy the current unified media correctly into the editor state
-        setEditThumbnail(recipe.thumbnailPath || recipe.originalThumbnail || null); // Initialize standalone thumbnail
+        setEditMedia([...allMedia].map((u) => safeImageSrc(u)).filter(Boolean));
+        setEditThumbnail(recipe.thumbnailPath || recipe.originalThumbnail || null);
         setSourceImage(recipe.originalThumbnail || recipe.thumbnailPath || null);
-        setEditSuggestedThumbnails(recipe.suggestedThumbnails ? recipe.suggestedThumbnails.split(',').map((s: string) => s.trim()).filter(Boolean) : []);
+        setEditSuggestedThumbnails(
+            recipe.suggestedThumbnails
+                ? recipe.suggestedThumbnails.split(',').map((s: string) => safeImageSrc(s.trim())).filter(Boolean)
+                : []
+        );
         setEditing(true);
     };
 
@@ -673,9 +683,11 @@ export default function ReceptDetail() {
                         </>
                     )}
 
-                    {safeExternalHref(recipe.originalUrl) && (
+                    {recipe.originalUrl && (
                         <p style={{ color: 'var(--text-light)', marginBottom: '20px' }}>
-                            <a href={safeExternalHref(recipe.originalUrl)} target="_blank" rel="noreferrer noopener" style={{ textDecoration: 'underline' }}>{isNL ? 'Originele Bron' : 'Original Source'}</a>
+                            <SafeExternalLink url={recipe.originalUrl} style={{ textDecoration: 'underline' }}>
+                                {isNL ? 'Originele Bron' : 'Original Source'}
+                            </SafeExternalLink>
                         </p>
                     )}
 
@@ -732,7 +744,7 @@ export default function ReceptDetail() {
                                                 {/* Original Thumbnail */}
                                                 {recipe.originalThumbnail && (
                                                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                        <img src={safeImageSrc(recipe.originalThumbnail)} onClick={() => { setSourceImage(recipe.originalThumbnail); setEditThumbnail(recipe.originalThumbnail); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === recipe.originalThumbnail ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? 'Originele Omslagfoto' : 'Original Cover Photo'} />
+                                                        <SafeImg url={recipe.originalThumbnail} onClick={() => { setSourceImage(recipe.originalThumbnail); setEditThumbnail(recipe.originalThumbnail); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === recipe.originalThumbnail ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? 'Originele Omslagfoto' : 'Original Cover Photo'} />
                                                         <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>{isNL ? 'Origineel' : 'Original'}</span>
                                                     </div>
                                                 )}
@@ -740,7 +752,7 @@ export default function ReceptDetail() {
                                                 {/* Suggested Thumbnails */}
                                                 {editSuggestedThumbnails.length > 0 && editSuggestedThumbnails.map((url, idx) => (
                                                     <div key={`sug-${idx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px', position: 'relative' }}>
-                                                        <img src={safeImageSrc(url)} onClick={() => { setSourceImage(url); setEditThumbnail(url); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? `Suggestie ${idx + 1}` : `Suggestion ${idx + 1}`} />
+                                                        <SafeImg url={url} onClick={() => { setSourceImage(url); setEditThumbnail(url); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} title={isNL ? `Suggestie ${idx + 1}` : `Suggestion ${idx + 1}`} />
                                                         <button 
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
@@ -763,7 +775,7 @@ export default function ReceptDetail() {
                                                     .filter(u => u !== recipe.originalThumbnail && !editSuggestedThumbnails.includes(u))
                                                     .map((url, idx) => (
                                                         <div key={`med-${idx}`} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
-                                                            <img src={safeImageSrc(url)} onClick={() => { setSourceImage(url); setEditThumbnail(url); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} />
+                                                            <SafeImg url={url} onClick={() => { setSourceImage(url); setEditThumbnail(url); }} style={{ width: '50px', height: '50px', objectFit: 'cover', borderRadius: '4px', cursor: 'pointer', border: sourceImage === url ? '3px solid var(--primary-color)' : '1px solid var(--border-color)' }} />
                                                             <span style={{ fontSize: '0.65rem', color: 'var(--text-secondary)' }}>Media</span>
                                                         </div>
                                                     ))}
@@ -793,7 +805,7 @@ export default function ReceptDetail() {
                                     <div style={{ fontSize: '0.9rem', marginBottom: '10px', fontWeight: 'bold' }}>{isNL ? 'Kies de video waaruit je de cover foto wilt halen:' : 'Choose the video to extract the cover photo from:'}</div>
                                     <div style={{ display: 'flex', gap: '8px', overflowX: 'auto' }}>
                                         {editMedia.filter(u => u.includes('/api/v/') || u.match(/\.(mp4|mov|webm)$/i)).map((vUrl, idx) => (
-                                            <video key={idx} src={safeImageSrc(vUrl) ? `${safeImageSrc(vUrl)}#t=0.001` : undefined} onClick={() => {
+                                            <SafeVideo key={idx} url={vUrl} previewHack onClick={() => {
                                                 setScrubbingVideoUrl(vUrl);
                                                 setChoosingVideo(false);
                                                 setScrubbing(true);
@@ -807,7 +819,7 @@ export default function ReceptDetail() {
                             {scrubbing && scrubbingVideoUrl && (
                                 <div style={{ marginTop: '15px' }}>
                                     <div style={{ marginBottom: '15px', borderRadius: '8px', overflow: 'hidden', backgroundColor: '#000', display: 'flex', justifyContent: 'center' }}>
-                                        <video ref={videoRef} src={safeImageSrc(scrubbingVideoUrl) ? `${safeImageSrc(scrubbingVideoUrl)}#t=0.001` : undefined} style={{ maxWidth: '100%', maxHeight: '400px' }} crossOrigin="anonymous" preload="auto" playsInline />
+                                        <SafeVideo ref={videoRef} url={scrubbingVideoUrl} previewHack style={{ maxWidth: '100%', maxHeight: '400px' }} crossOrigin="anonymous" preload="auto" playsInline />
                                     </div>
                                     <FilmstripScrubber videoRef={videoRef} onCapture={captureThumbnail} onCancel={() => { setScrubbing(false); setScrubbingVideoUrl(null); }} />
                                 </div>
@@ -931,9 +943,9 @@ export default function ReceptDetail() {
                                                     }} disabled={idx === editMedia.length - 1} style={{ border: 'none', background: 'none', cursor: 'pointer', padding: '0 4px', color: idx === editMedia.length - 1 ? '#ccc' : '#000' }}>›</button>
                                                 </div>
                                                 {isVid ? (
-                                                    <video src={safeImageSrc(url) ? `${safeImageSrc(url)}#t=0.001` : undefined} style={{ width: '100%', height: '60px', objectFit: 'cover' }} muted preload="metadata" />
+                                                    <SafeVideo url={url} previewHack style={{ width: '100%', height: '60px', objectFit: 'cover' }} muted preload="metadata" />
                                                 ) : (
-                                                    <img src={safeImageSrc(url)} style={{ width: '100%', height: '60px', objectFit: 'cover' }} />
+                                                    <SafeImg url={url} style={{ width: '100%', height: '60px', objectFit: 'cover' }} />
                                                 )}
                                                 <button onClick={(e) => {
                                                     e.stopPropagation();
@@ -958,9 +970,10 @@ export default function ReceptDetail() {
                                             <div key={idx} style={{ display: isActive ? 'block' : 'none', position: 'relative' }}>
                                                 {isVid ? (
                                                     <>
-                                                        <video
+                                                        <SafeVideo
                                                             ref={(el) => { videoRefs.current[idx] = el; }}
-                                                            src={safeImageSrc(src) ? `${safeImageSrc(src)}#t=0.001` : undefined}
+                                                            url={src}
+                                                            previewHack
                                                             controls
                                                             playsInline
                                                             preload="auto"
@@ -993,8 +1006,8 @@ export default function ReceptDetail() {
                                                     </>
                                                 ) : (
                                                     <>
-                                                        <img
-                                                            src={safeImageSrc(src)}
+                                                        <SafeImg
+                                                            url={src}
                                                             style={{ width: '100%', maxHeight: '500px', objectFit: 'contain', backgroundColor: '#f0f0f0', display: 'block', cursor: 'pointer' }}
                                                             onClick={() => setViewerIndex(idx)}
                                                         />
@@ -1338,7 +1351,7 @@ export default function ReceptDetail() {
                     {(() => {
                         const mSrc = allMedia[viewerIndex];
                         if (!mSrc) return null;
-                        return <img src={safeImageSrc(mSrc)} alt="Fullscreen view" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '85vh', objectFit: 'contain' }} />;
+                        return <SafeImg url={mSrc} alt="Fullscreen view" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '90%', maxHeight: '85vh', objectFit: 'contain' }} />;
                     })()}
 
                     {allMedia.length > 1 && (
