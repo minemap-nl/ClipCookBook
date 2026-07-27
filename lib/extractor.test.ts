@@ -1,5 +1,8 @@
 import { expect, test, describe } from "bun:test";
-import { extractRecipeData } from "./extractor";
+
+// extractor.ts reads LANGUAGE at module load
+process.env.LANGUAGE = "nl";
+const { extractRecipeData } = await import("./extractor");
 
 describe("Extract Recipe Data", () => {
     test("Extracts bullet point ingredients", () => {

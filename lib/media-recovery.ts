@@ -2,6 +2,8 @@ import path from 'path';
 import fs from 'fs/promises';
 import { prisma } from '@/lib/prisma';
 import { getSmtpAlertTo, isSmtpConfigured, sendAdminAlertEmail } from '@/lib/smtp';
+import { withYtdlpCookies, isYtdlpAuthError } from '@/lib/ytdlp-options';
+import { noteYtdlpAuthOutcome } from '@/lib/ytdlp-cookies-alert';
 
 /** Same format preference as `app/api/extract/route.ts` for consistent MP4 output. */
 const YT_DLP_FORMAT =
@@ -91,14 +93,17 @@ function isRecoverableOriginalUrl(trimmed: string): boolean {
 async function tryYtdlpToFile(sourceUrl: string, destPath: string): Promise<boolean> {
     try {
         const ytDlp = (await import('yt-dlp-exec')).default;
-        await ytDlp(sourceUrl, {
+        await ytDlp(sourceUrl, withYtdlpCookies({
             output: destPath,
             format: YT_DLP_FORMAT,
             mergeOutputFormat: 'mp4',
             noPlaylist: true,
             noWarnings: true,
-        });
-        if (await fileExists(destPath)) return true;
+        }));
+        if (await fileExists(destPath)) {
+            await noteYtdlpAuthOutcome(true);
+            return true;
+        }
         console.error(
             `[ERROR] [MediaRecovery] yt-dlp finished but output missing: ${destPath} (source=${sourceUrl})`
         );
@@ -108,6 +113,9 @@ async function tryYtdlpToFile(sourceUrl: string, destPath: string): Promise<bool
             `[ERROR] [MediaRecovery] yt-dlp failed (source=${sourceUrl}):`,
             e instanceof Error ? e.message : e
         );
+        if (isYtdlpAuthError(e)) {
+            await noteYtdlpAuthOutcome(false, e instanceof Error ? e.message : String(e));
+        }
         return false;
     }
 }

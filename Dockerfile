@@ -1,4 +1,4 @@
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 
 # Security: upgrade Alpine packages (lcms2, xz-libs, libpng via ffmpeg, etc.) in every stage.
 RUN apk update && apk upgrade --no-cache
@@ -13,7 +13,12 @@ WORKDIR /app
 # Copy dependency graphs and install with bun
 COPY package.json bun.lock* ./
 COPY --from=oven/bun:1.3-alpine /usr/local/bin/bun /usr/local/bin/bun
-RUN bun install
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    for i in 1 2 3 4 5; do \
+      bun install && break; \
+      echo "bun install failed (attempt $i), retrying..."; \
+      sleep $((i * 5)); \
+    done && test -d node_modules
 
 # Ensure better-sqlite3 native binding is compiled at the standard path
 RUN npm rebuild better-sqlite3
@@ -42,7 +47,13 @@ RUN apk add --no-cache openssl python3
 WORKDIR /runtime-deps
 COPY package.json bun.lock ./
 # Production deps + lockfile so versions and overrides (hono, undici, …) match the repo and Snyk
-RUN bun install --production --frozen-lockfile && \
+RUN --mount=type=cache,target=/root/.bun/install/cache \
+    for i in 1 2 3 4 5; do \
+      bun install --production --frozen-lockfile && break; \
+      echo "bun install --production failed (attempt $i), retrying..."; \
+      sleep $((i * 5)); \
+    done && \
+    test -d node_modules && \
     node node_modules/@prisma/engines/dist/scripts/postinstall.js
 
 # Production runtime image

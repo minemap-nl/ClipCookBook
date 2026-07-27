@@ -1,0 +1,11 @@
+{
+  "name": "clipcookbook-instagram-cookies",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "refresh": "node refresh.mjs"
+  },
+  "dependencies": {
+    "playwright": "^1.52.0"
+  }
+}

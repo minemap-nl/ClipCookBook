@@ -67,11 +67,13 @@ It's designed to be fast, private, and fully under your control.
 
 ## Key Features
 
-* **📱 Social Media Extraction** — Paste an Instagram or TikTok link and let AI do the work.
-* **🤖 AI-Powered** — Automatically identifies ingredients, amounts, units, and cooking steps.
+* **📱 Social Media Extraction** — Paste an Instagram, TikTok, or YouTube link and let AI do the work.
+* **🤖 AI-Powered** — Automatically identifies ingredients, amounts, units, and cooking steps (`PROCESS_METHOD=ai`).
+* **🔍 Deep Search** — Analyze video audio/visuals when captions are empty or incomplete.
+* **🍪 Instagram cookies helper** — Optional session cookies for video download (`/cookies` + local Playwright tool).
 * **🎥 Media Gallery** — Keeps the original video and thumbnails alongside the recipe.
-* **📅 Automated Backups** — Optional automatic backups to keep your data safe.
-* **📧 Email Integration** — Built-in support for sending recipes via SMTP.
+* **📅 Automated Backups** — Optional automatic backups; one-shot admin alerts on failure.
+* **📧 Email Integration** — Recipes via SMTP + ops alerts (`SMTP_ALERT_TO`).
 * **🔒 Self-Hosted** — You own your data. Simple SQLite database with easy Docker deployment.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
@@ -130,22 +132,36 @@ services:
       - ./backups:/app/backups
     environment:
       - DATABASE_URL=file:/app/data/dev.db
-      - NEXT_PUBLIC_LANGUAGE=en # UI Language ('en' or 'nl')
+      - LANGUAGE=en # UI Language ('en' or 'nl')
       - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
       - GEMINI_API_KEY=your-gemini-api-key
+      - GEMINI_MODEL=gemini-3.5-flash
       - APP_NAME=ClipCookBook
-      - APP_URL=https://clipcookbook.yourdomain.com #or whatever http or https domain you want. You can also just use http://{your internal ip-adres}:{port number in this case 9416}
+      - APP_URL=https://clipcookbook.yourdomain.com
       - SITE_PASSWORD=your-secret-password
       - JWT_SECRET=your-random-jwt-secret
       - AUTO_BACKUP=true
-      - LANGUAGE=en
+      - SMTP_ALERT_TO=your-alert-email@example.com
+      - SMTP_HOST=your-smtp-host
+      - SMTP_PORT=587
+      - SMTP_USER=your-email
+      - SMTP_PASS=your-password
+      - YT_DLP_AUTO_UPDATE=true
+      - YT_DLP_AUTO_UPDATE_ON_STARTUP=false
+      - YT_DLP_AUTO_UPDATE_NIGHTLY=true
+      - YT_DLP_UPDATE_HOUR=3
 ```
 
-4. Start the stack:
+4. Ensure folders are writable by the container user (`uid 1001`), then start:
 
 ```sh
+mkdir -p db thumbnails videos backups
+# Linux example:
+sudo chown -R 1001:1001 db thumbnails videos backups
 docker compose up -d
 ```
+
+Optional Instagram **video** downloads: place a Netscape `cookies.txt` in `./db/cookies.txt` (or use `/cookies` + `tools/instagram-cookies`). See `tools/instagram-cookies/README.md`.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -156,7 +172,10 @@ docker compose up -d
 ClipCookBook currently leverages **Google Gemini AI** to transform unstructured social media data into structured recipes.
 
 * **Free Tier Supported**: You can use a free tier API key from [Google AI Studio](https://aistudio.google.com/).
-* **Optimal Results**: AI is required for optimal automatic extraction of ingredients and steps. Without it (`PROCESS_METHOD=manual`), you can still save links and media but an algoritm will try to do it's best using the description of a social media video. You also can't use the photo recipe extraction feature. You can always enter recipe details manually.
+* **Default model**: `gemini-3.5-flash` (override with `GEMINI_MODEL`). Older `gemini-2.5-flash` is capacity-limited and scheduled for retirement.
+* **Strict AI mode**: With `PROCESS_METHOD=ai`, imports use Gemini only (no silent fallback to the heuristic parser). Failures surface as clear import errors.
+* **Deep Search**: When enabled on import, video audio/visuals are analyzed (useful for reels without a recipe caption).
+* **Manual mode**: Without AI (`PROCESS_METHOD=manual`), a built-in algorithm tries to parse descriptions; photo extraction requires AI.
 * **Future Updates**: Support for additional AI providers (like OpenAI or local LLMs) is planned for future releases.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>

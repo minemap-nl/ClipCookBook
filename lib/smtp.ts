@@ -35,7 +35,7 @@ function escapeHtml(s: string) {
         .replace(/"/g, '&quot;');
 }
 
-/** Ops / cron alerts (missing media, backup failures). Requires valid SMTP_ALERT_TO + SMTP_HOST + SMTP_USER. */
+/** Ops / cron alerts (missing media, backup failures, yt-dlp cookies). Requires valid SMTP_ALERT_TO + SMTP_HOST + SMTP_USER. */
 export async function sendAdminAlertEmail(subject: string, textBody: string, htmlBody?: string) {
     const to = getSmtpAlertTo();
     if (!to || !isSmtpConfigured()) return false;

@@ -178,5 +178,48 @@ export async function register() {
         console.log(
             `[Cron] Media maintenance (recovery + orphan cleanup) first run in ${Math.round(maintenanceInitialMs / 1000)}s, then every 24h.`
         );
+
+        const scheduleYtdlpUpdates = async () => {
+            if (process.env.YT_DLP_AUTO_UPDATE_NIGHTLY === 'false') {
+                console.log('[Cron] Nightly yt-dlp updates are disabled (YT_DLP_AUTO_UPDATE_NIGHTLY=false).');
+                return;
+            }
+            const { msUntilNextLocalHour, updateYtdlp } = await import('./lib/ytdlp-update');
+            const updateHour = Math.min(
+                23,
+                Math.max(0, parseInt(process.env.YT_DLP_UPDATE_HOUR || '3', 10) || 3)
+            );
+
+            const runNightlyUpdate = async () => {
+                try {
+                    await updateYtdlp('nightly');
+                } catch (e) {
+                    console.error('[Cron] Nightly yt-dlp update failed:', e);
+                }
+            };
+
+            const firstDelay = msUntilNextLocalHour(updateHour);
+            setTimeout(() => {
+                void runNightlyUpdate();
+                setInterval(runNightlyUpdate, 24 * 60 * 60 * 1000);
+            }, firstDelay);
+            console.log(
+                `[Cron] Nightly yt-dlp update scheduled at ${String(updateHour).padStart(2, '0')}:00 local (first in ${Math.round(firstDelay / 1000)}s), then every 24h.`
+            );
+        };
+
+        // Startup update is opt-in (nightly is enough for extractor fixes).
+        if (process.env.YT_DLP_AUTO_UPDATE_ON_STARTUP === 'true') {
+            setTimeout(async () => {
+                try {
+                    const { updateYtdlp } = await import('./lib/ytdlp-update');
+                    await updateYtdlp('startup');
+                } catch (e) {
+                    console.error('[Cron] Startup yt-dlp update failed:', e);
+                }
+            }, 15_000);
+        }
+
+        void scheduleYtdlpUpdates();
     }
 }

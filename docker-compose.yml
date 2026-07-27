@@ -1,9 +1,9 @@
 version: '3.8'
 
 services:
-  social-recipe-saver:
-    image: ghcr.io/minemap-nl/socialrecipesaver:latest
-    container_name: Social-Recipe-Saver
+  clipcookbook:
+    image: ghcr.io/minemap-nl/clipcookbook:v1.15 # or :latest
+    container_name: ClipCookBook
     restart: always
     stop_grace_period: 5s
     ports:
@@ -13,17 +13,30 @@ services:
       - ./thumbnails:/app/public/thumbnails
       - ./videos:/app/public/videos
       - ./backups:/app/backups
+      # Optional: Netscape cookies.txt for Instagram/TikTok video download
+      # - ./cookies.txt:/app/data/cookies.txt:ro
     environment:
       - DATABASE_URL=file:/app/data/dev.db
-      - LANGUAGE=nl # UI Language ('en' or 'nl')
+      - LANGUAGE=en # UI Language ('en' or 'nl')
       - PROCESS_METHOD=ai # Set to 'manual' to disable AI features
-      - GEMINI_API_KEY=your-gemini-api-key
+      - GEMINI_API_KEY=your-gemini-api-key # https://aistudio.google.com/
+      # Optional override (default: gemini-3.5-flash)
+      - GEMINI_MODEL=gemini-3.5-flash
       - APP_NAME=ClipCookBook
-      - APP_URL=https://recepten.yourdomain.com
+      - APP_URL=https://clipcookbook.yourdomain.com
       - SITE_PASSWORD=your-secret-password
-      - JWT_SECRET=your-random-jwt-secret
+      - JWT_SECRET=your-random-jwt-secret # openssl rand -hex 32
       - AUTO_BACKUP=true
+      # Optional: path to cookies for Instagram/TikTok *video* (default: /app/data/cookies.txt)
+      # - YT_DLP_COOKIES=/app/data/cookies.txt
+      # Admin alerts (backup, missing media, expired cookies)
+      - SMTP_ALERT_TO=your-alert-email@example.com
       - SMTP_HOST=your-smtp-host
       - SMTP_PORT=587
       - SMTP_USER=your-email
       - SMTP_PASS=your-password
+      # Nightly yt-dlp binary update (extractor fixes). Startup update off by default.
+      - YT_DLP_AUTO_UPDATE=true
+      - YT_DLP_AUTO_UPDATE_ON_STARTUP=false
+      - YT_DLP_AUTO_UPDATE_NIGHTLY=true
+      - YT_DLP_UPDATE_HOUR=3

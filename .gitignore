@@ -48,6 +48,12 @@ next-env.d.ts
 # runtime alert state (one e-mail per outage)
 data/media-missing-alert.json
 data/backup-failure-alert.json
+data/ytdlp-cookies-alert.json
+data/cookies.txt
+
+# Instagram cookie helper output
+tools/instagram-cookies/cookies.txt
+tools/instagram-cookies/node_modules/
 
 # data folders
 public/thumbnails/*

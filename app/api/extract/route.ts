@@ -4,10 +4,14 @@ import path from 'path';
 import fs from 'fs';
 import { prisma } from '@/lib/prisma';
 import { extractRecipeData, extractRecipeDataAI, extractRecipeDataFromVideo } from '@/lib/extractor';
+import { isAiProcessingEnabled } from '@/lib/process-method';
 import { canonicalSourceUrl, normalizeSourceUrl } from '@/lib/normalize-source-url';
 import { getSafeFetchUrl, safeFetch } from '@/lib/safe-url';
 import { findExistingRecipeBySourceUrl } from '@/lib/find-recipe-by-source-url';
 import { extractFrames } from '@/lib/ffmpeg';
+import { fetchInstagramPublicMeta, isInstagramUrl } from '@/lib/instagram-public-meta';
+import { formatYtdlpError, isYtdlpAuthError, withYtdlpCookies } from '@/lib/ytdlp-options';
+import { noteYtdlpAuthOutcome } from '@/lib/ytdlp-cookies-alert';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 
@@ -67,8 +71,15 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
             document.querySelectorAll("script, style, noscript, nav, footer, header").forEach(el => el.remove());
             const cleanText = document.body.textContent?.replace(/\s+/g, ' ').trim() || "";
 
-            await prisma.importJob.update({ where: { id: jobId }, data: { message: "Recept via AI genereren..." } });
-            extracted = await extractRecipeDataAI(cleanText);
+            await prisma.importJob.update({
+                where: { id: jobId },
+                data: { message: isAiProcessingEnabled() ? "Recept via AI genereren..." : "Recept uit tekst halen..." },
+            });
+            if (isAiProcessingEnabled()) {
+                extracted = await extractRecipeDataAI(cleanText);
+            } else {
+                extracted = extractRecipeData(cleanText);
+            }
 
             const ogImage = document.querySelector('meta[property="og:image"]')?.getAttribute('content');
             if (ogImage && getSafeFetchUrl(ogImage)) {
@@ -81,19 +92,74 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
             finalTags = extracted.tags || [];
         } else {
             await prisma.importJob.update({ where: { id: jobId }, data: { message: "Video-informatie ophalen..." } });
-            info = await ytDlp(url, { dumpSingleJson: true, noWarnings: true, noPlaylist: true });
-            const description = info.description || info.title || "";
-            const cleanDesc = sanitize(description);
 
+            let cleanDesc = '';
+            let usedTextOnlyFallback = false;
+
+            try {
+                info = await ytDlp(url, withYtdlpCookies({ dumpSingleJson: true, noWarnings: true, noPlaylist: true }));
+                cleanDesc = sanitize(info.description || info.title || '');
+                await noteYtdlpAuthOutcome(true);
+            } catch (ytErr) {
+                if (isInstagramUrl(url) && isYtdlpAuthError(ytErr)) {
+                    await noteYtdlpAuthOutcome(
+                        false,
+                        ytErr instanceof Error ? ytErr.message : String(ytErr)
+                    );
+                    console.warn('[extract] yt-dlp blocked for Instagram; trying public meta fallback');
+                    await prisma.importJob.update({
+                        where: { id: jobId },
+                        data: { message: "Instagram blokkeert video; beschrijving ophalen..." },
+                    });
+                    const meta = await fetchInstagramPublicMeta(url);
+                    cleanDesc = sanitize([meta.title, meta.description].filter(Boolean).join('\n\n'));
+                    if (meta.thumbnailUrl) {
+                        const ok = await downloadThumbnail(meta.thumbnailUrl, thumbPath);
+                        if (ok) finalThumbnail = `/api/thumbnail/${thumbName}`;
+                    }
+                    info = { title: meta.title || undefined, portions: 4 };
+                    usedTextOnlyFallback = true;
+                    if (cleanDesc.replace(/#\w+/gi, '').replace(/https?:\/\/[^\s]+/gi, '').trim().length < 40) {
+                        throw new Error(
+                            'Instagram geeft geen video én geen bruikbare beschrijving zonder login. ' +
+                                'Gebruik de foto-tab (screenshot van het recept) of voeg optioneel cookies toe voor videodownload.'
+                        );
+                    }
+                } else {
+                    if (isYtdlpAuthError(ytErr)) {
+                        await noteYtdlpAuthOutcome(
+                            false,
+                            ytErr instanceof Error ? ytErr.message : String(ytErr)
+                        );
+                    }
+                    throw ytErr;
+                }
+            }
+
+            if (usedTextOnlyFallback) {
+                await prisma.importJob.update({
+                    where: { id: jobId },
+                    data: { message: "Recept uit Instagram-beschrijving genereren (zonder video)..." },
+                });
+                if (isAiProcessingEnabled()) {
+                    extracted = await extractRecipeDataAI(cleanDesc);
+                } else {
+                    extracted = extractRecipeData(cleanDesc);
+                }
+                finalTitle = extracted?.title || info?.title || "Nieuw Recept";
+                finalDescription = extracted?.description || null;
+                finalTags.push(...(extracted?.tags || []).filter((t: string) => !t.startsWith('_thumb')));
+            } else {
             await prisma.importJob.update({ where: { id: jobId }, data: { message: "Video downloaden en recept schrijven..." } });
 
-            const videoPromise = ytDlp(url, {
+            const videoPromise = ytDlp(url, withYtdlpCookies({
                 output: outputPath,
                 format: 'bestvideo[vcodec^=avc1][ext=mp4]+bestaudio[ext=m4a]/bestvideo[vcodec^=avc1]+bestaudio/best[ext=mp4]/best',
                 mergeOutputFormat: 'mp4',
                 noPlaylist: true,
-            }).then(async () => {
+            })).then(async () => {
                 finalVideoPath = `/api/v/${path.parse(videoName).name}`;
+                await noteYtdlpAuthOutcome(true);
                 // Extract 3 suggested frames
                 try {
                     const extractedThumbs = await extractFrames(outputPath, 'public/thumbnails', `suggest-${id}`);
@@ -105,6 +171,14 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
                 } catch (e) {
                     console.error("Frame extraction error", e);
                 }
+            }).catch(async (videoErr) => {
+                if (isYtdlpAuthError(videoErr)) {
+                    await noteYtdlpAuthOutcome(
+                        false,
+                        videoErr instanceof Error ? videoErr.message : String(videoErr)
+                    );
+                }
+                throw videoErr;
             });
 
             const thumbPromise = (async () => {
@@ -115,7 +189,7 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
             })();
 
             const aiPromise = (async () => {
-                if (process.env.PROCESS_METHOD === 'ai') {
+                if (isAiProcessingEnabled()) {
                     let contentToProcess = cleanDesc;
                     // External link logic...
                     const urlMatch = cleanDesc.match(/(https?:\/\/[^\s]+)/g);
@@ -138,45 +212,64 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
                         }
                     }
 
-                    try {
-                        extracted = await extractRecipeDataAI(contentToProcess);
-                    } catch (e) {
-                        extracted = extractRecipeData(cleanDesc);
+                    const usableTextLength = contentToProcess
+                        .replace(/#\w+/gi, '')
+                        .replace(/https?:\/\/[^\s]+/gi, '')
+                        .trim().length;
+
+                    // Deep Search / nearly empty captions: skip text AI and go straight to video analysis.
+                    // Otherwise text AI may return "Gefilterd: geen recept" on empty fluff and abort before video.
+                    if (deepSearch) {
+                        console.log('[extract] Deep Search on — skipping text AI, using video AI.');
+                        extracted = null;
+                    } else if (usableTextLength < 40) {
+                        console.log('[extract] Caption too short for text AI — using video AI.');
+                        extracted = null;
+                    } else {
+                        try {
+                            extracted = await extractRecipeDataAI(contentToProcess);
+                        } catch (e) {
+                            const msg = e instanceof Error ? e.message : String(e);
+                            // Substantial caption judged "not a recipe" → fail. Weak/empty-ish → try video AI.
+                            if (/gefilterd|filtered/i.test(msg) && usableTextLength >= 100) {
+                                throw e;
+                            }
+                            console.error('[extract] Text AI failed (will try video AI):', msg);
+                            extracted = null;
+                        }
                     }
 
                     try {
-                        // Smart Fallback checks 
-                        let isTextTooShort = false;
+                        let isTextTooShort = usableTextLength < 100;
                         let hasNoUsefulData = false;
 
                         if (extracted) {
-                            const cleanTextLength = contentToProcess.replace(/#\w+/gi, '').replace(/https?:\/\/[^\s]+/gi, '').trim().length;
-                            isTextTooShort = cleanTextLength < 100;
                             const hasNoIngredients = !extracted.ingredients || extracted.ingredients.length === 0;
                             const hasNoUsefulSteps = !extracted.steps || extracted.steps.length === 0;
-                            // Also flag if steps has 1 item and it's suspiciously short (could be a catch-all for bad unstructured data)
                             hasNoUsefulData = hasNoIngredients || hasNoUsefulSteps || (extracted.steps.length === 1 && extracted.steps[0].length < 50);
                         }
 
                         if (deepSearch || hasNoUsefulData || isTextTooShort || !extracted) {
                             if (deepSearch) {
-                                console.log("Deep Search requested. Triggering Video AI directly...");
-                                await prisma.importJob.update({ where: { id: jobId }, data: { message: "Deep Search geselecteerd: Audio & video analyseren (AI)... dit kan even duren." } });
+                                console.log("Deep Search requested. Triggering Video AI...");
+                                await prisma.importJob.update({ where: { id: jobId }, data: { message: "Deep Search: audio & video analyseren (AI)... dit kan even duren." } });
                             } else {
-                                console.log("Text info insufficient. Starting Video AI Fallback...");
-                                await prisma.importJob.update({ where: { id: jobId }, data: { message: "De beschrijving bevatte onvoldoende informatie. Video bekijken (AI)... dit kan even duren." } });
+                                console.log("Text insufficient or text AI inconclusive. Starting Video AI...");
+                                await prisma.importJob.update({ where: { id: jobId }, data: { message: "Video bekijken (AI)... dit kan even duren." } });
                             }
 
-                            // Wait for the video download to finish first
                             await videoPromise;
-                            // If deepSearch was true, 'extracted' from text might be junk or skipped. Overwrite it completely.
                             extracted = await extractRecipeDataFromVideo(outputPath, contentToProcess);
                         }
-                    } catch (err: any) {
-                        console.error("Video AI Fallback faalde:", err);
-                        if (err.message && err.message.includes("Geen recept")) {
-                            throw err; // Abort entire import job
+
+                        if (!extracted) {
+                            throw new Error(
+                                'AI-extractie mislukt (tekst én video). Controleer GEMINI_API_KEY, quota en GEMINI_MODEL.'
+                            );
                         }
+                    } catch (err: any) {
+                        console.error("Video AI failed:", err);
+                        throw err;
                     }
 
                 } else {
@@ -191,6 +284,7 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
             // Filter out the hidden thumb tags before saving to real tags, and store them separately
             const userTags = (extracted?.tags || []).filter((t: string) => !t.startsWith('_thumb'));
             finalTags.push(...userTags);
+            }
         }
 
         const pureTags = finalTags.filter(t => !t.startsWith('_thumb')).filter(t => t.trim().length > 0);
@@ -234,7 +328,7 @@ async function processJob(jobId: string, url: string, deepSearch: boolean = fals
         console.error("Background job failed:", error);
         await prisma.importJob.update({
             where: { id: jobId },
-            data: { status: 'ERROR', error: error.message || "Onbekende fout", message: "Fout bij importeren" }
+            data: { status: 'ERROR', error: formatYtdlpError(error), message: "Fout bij importeren" }
         });
     }
 }

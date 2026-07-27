@@ -356,8 +356,25 @@ const ERR = {
         : "No recipe or cooking-related content found in this video. Note: check that you are using the correct link.",
     notRecipeImage: isNL
         ? "De AI kon geen recept of voedsel herkennen in de geüploade media. Probeer het met specifiekere kookfoto's."
-        : "The AI could not recognize a recipe or food in the uploaded media. Try with more specific cooking photos."
+        : "The AI could not recognize a recipe or food in the uploaded media. Try with more specific cooking photos.",
+    aiFailed: isNL
+        ? "AI-extractie mislukt. Controleer GEMINI_API_KEY, quota en GEMINI_MODEL."
+        : "AI extraction failed. Check GEMINI_API_KEY, quota, and GEMINI_MODEL.",
 };
+
+/** Override with GEMINI_MODEL. Default: gemini-3.5-flash (2.5 is capacity-limited / retiring Oct 2026). */
+export function getGeminiModel(): string {
+    return process.env.GEMINI_MODEL?.trim() || 'gemini-3.5-flash';
+}
+
+function formatAiError(context: string, e: unknown): Error {
+    const raw = e instanceof Error ? e.message : String(e);
+    console.error(`[ERROR] [Gemini] ${context} (model=${getGeminiModel()}):`, e);
+    if (e instanceof Error && (e.message === ERR.notRecipeText || e.message === ERR.notRecipeVideo || e.message === ERR.notRecipeImage || e.message === ERR.missingGeminiEnv || e.message === ERR.videoFailed)) {
+        return e;
+    }
+    return new Error(`${ERR.aiFailed} (${context}: ${raw})`);
+}
 
 export async function extractRecipeDataAI(text: string): Promise<ExtractedData> {
     if (!process.env.GEMINI_API_KEY) {
@@ -368,16 +385,22 @@ export async function extractRecipeDataAI(text: string): Promise<ExtractedData> 
     const desc = getSchemaDescriptions();
     const responseSchema = buildResponseSchema(desc.isRecipeText, desc.portions);
     const prompt = getTextPrompt(text);
+    const model = getGeminiModel();
 
-    const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: prompt,
-        config: {
-            responseMimeType: 'application/json',
-            responseSchema: responseSchema,
-            temperature: 0.1,
-        }
-    });
+    let response;
+    try {
+        response = await ai.models.generateContent({
+            model,
+            contents: prompt,
+            config: {
+                responseMimeType: 'application/json',
+                responseSchema: responseSchema,
+                temperature: 0.1,
+            }
+        });
+    } catch (e) {
+        throw formatAiError('text generateContent', e);
+    }
 
     try {
         const jsonStr = response.text;
@@ -404,8 +427,7 @@ export async function extractRecipeDataAI(text: string): Promise<ExtractedData> 
         if (e.message && e.message.toLowerCase().includes(filterWord)) {
             throw e;
         }
-        console.error("AI parse error", e);
-        return { ingredients: [], steps: [text], portions: null };
+        throw formatAiError('text parse', e);
     }
 }
 
@@ -418,10 +440,10 @@ export async function extractRecipeDataFromVideo(videoPath: string, fallbackText
     let uploadedFile: any = null;
     const desc = getSchemaDescriptions();
     const responseSchema = buildResponseSchema(desc.isRecipeVideo, desc.portionsVideo);
+    const model = getGeminiModel();
 
     try {
-        // 1. Upload video
-        console.log("Uploading video to Gemini:", videoPath);
+        console.log("Uploading video to Gemini:", videoPath, "model=", model);
         uploadedFile = await ai.files.upload({
             file: videoPath,
             config: {
@@ -429,7 +451,6 @@ export async function extractRecipeDataFromVideo(videoPath: string, fallbackText
             }
         });
 
-        // 2. Poll status until ACTIVE
         let fileState = uploadedFile.state;
         while (fileState === 'PROCESSING') {
             await new Promise(r => setTimeout(r, 2000));
@@ -443,11 +464,10 @@ export async function extractRecipeDataFromVideo(videoPath: string, fallbackText
 
         console.log("Video processing complete. Status:", fileState);
 
-        // 3. Generate content
         const prompt = getVideoPrompt(fallbackText);
 
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model,
             contents: [
                 prompt,
                 {
@@ -485,10 +505,11 @@ export async function extractRecipeDataFromVideo(videoPath: string, fallbackText
         if (e.message && e.message.toLowerCase().includes(recipeWord)) {
             throw e;
         }
-        console.error("Video AI parse error", e);
-        return { ingredients: [], steps: [fallbackText], portions: null };
+        if (e.message === ERR.videoFailed || e.message === ERR.missingGeminiEnv) {
+            throw e;
+        }
+        throw formatAiError('video', e);
     } finally {
-        // 4. Always delete the file to save cloud storage space
         if (uploadedFile && uploadedFile.name) {
             try {
                 await ai.files.delete({ name: uploadedFile.name });
@@ -509,11 +530,11 @@ export async function extractRecipeDataFromImages(imagePaths: string[], fallback
     const uploadedFiles: any[] = [];
     const desc = getSchemaDescriptions();
     const responseSchema = buildResponseSchema(desc.isRecipeImage, desc.portionsImage);
+    const model = getGeminiModel();
 
     try {
-        // 1. Upload all images
         for (const imagePath of imagePaths) {
-            console.log("Uploading image to Gemini:", imagePath);
+            console.log("Uploading image to Gemini:", imagePath, "model=", model);
             let mimeType = 'image/jpeg';
             if (imagePath.toLowerCase().endsWith('.png')) mimeType = 'image/png';
             if (imagePath.toLowerCase().endsWith('.webp')) mimeType = 'image/webp';
@@ -526,7 +547,6 @@ export async function extractRecipeDataFromImages(imagePaths: string[], fallback
             uploadedFiles.push(uploadedFile);
         }
 
-        // 2. Poll status until all are ACTIVE
         for (let i = 0; i < uploadedFiles.length; i++) {
             let fileState = uploadedFiles[i].state;
             while (fileState === 'PROCESSING') {
@@ -539,7 +559,6 @@ export async function extractRecipeDataFromImages(imagePaths: string[], fallback
             }
         }
 
-        // 3. Generate content
         const prompt = getImagePrompt(fallbackText);
         const contents: any[] = [prompt];
 
@@ -554,8 +573,12 @@ export async function extractRecipeDataFromImages(imagePaths: string[], fallback
             }
         }
 
+        if (contents.length < 2) {
+            throw new Error(ERR.aiFailed + ' (no active image uploads)');
+        }
+
         const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash',
+            model,
             contents,
             config: {
                 responseMimeType: 'application/json',
@@ -585,10 +608,11 @@ export async function extractRecipeDataFromImages(imagePaths: string[], fallback
         if (e.message && e.message.toLowerCase().includes(recipeWord)) {
             throw e;
         }
-        console.error("Image AI parse error", e);
-        return { ingredients: [], steps: [fallbackText], portions: null };
+        if (e.message === ERR.missingGeminiEnv) {
+            throw e;
+        }
+        throw formatAiError('images', e);
     } finally {
-        // 4. Clean up all uploaded files
         for (const file of uploadedFiles) {
             if (file && file.name) {
                 try {

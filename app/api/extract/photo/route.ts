@@ -4,6 +4,7 @@ import fs from 'fs';
 import os from 'os';
 import { prisma } from '@/lib/prisma';
 import { extractRecipeDataFromImages } from '@/lib/extractor';
+import { isAiProcessingEnabled } from '@/lib/process-method';
 import DOMPurify from 'dompurify';
 import { JSDOM } from 'jsdom';
 
@@ -17,7 +18,7 @@ function sanitize(text: string | null | undefined) {
 }
 
 export async function POST(req: Request) {
-    if (process.env.PROCESS_METHOD !== 'ai') {
+    if (!isAiProcessingEnabled()) {
         return NextResponse.json({ error: "AI verwerking staat momenteel uit." }, { status: 403 });
     }
 
